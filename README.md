@@ -87,6 +87,8 @@ Version **1.5.0** also adds [multi-Agent collaboration](docs/MULTI-AGENT-COLLABO
 
 The development line after 1.5.0 adds opt-in bounded execution of independent DAG nodes, resource-aware wave sizing, file ownership and conflict replay on updated snapshots, failure isolation, and auditable merge decisions. Every accepted candidate still passes independent cumulative verification.
 
+It also adds an [evidence-driven candidate queue](docs/CANDIDATE-ITERATION.md) and [fixed-case strategy replay and admission](docs/POST-MERGE-EVALUATION.md). CI, policy, review, baseline and post-merge signals are ranked with their evidence; only a trusted Issue with a stable test reproduction can be approved into an executable goal. Pinned evaluation suites compare the same cases across profiles and can block automatic iteration when verification or cost limits regress. These development features are not part of the 1.5.0 portable release.
+
 - Pinned base/head SHAs and title/body digest; continuous freshness checks and cancellation.
 - Scoped literal rules and JavaScript/TypeScript AST call rules, conflict detection and expiring exceptions.
 - Nested AGENTS.md semantic review with verbatim rule/code citations and historical finding comparison.

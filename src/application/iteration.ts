@@ -322,8 +322,10 @@ async function design(state: GoalState, base: Snapshot, d: IterationDependencies
     throw error;
   } finally { await settle(); }
 }
-export async function createGoal(raw: unknown, d: IterationDependencies): Promise<GoalState> {
+export async function createGoal(raw: unknown, d: IterationDependencies,
+  metadata: { candidateId?: string; evaluationRunId?: string; expectedSha?: string } = {}): Promise<GoalState> {
   const limits = enabled(d), spec = goalSpecSchema.parse(raw), target = await d.github.target(spec.branch);
+  if (metadata.expectedSha && target.sha !== metadata.expectedSha) throw new Error('Goal target changed before creation.');
   let digest: string | undefined;
   if (spec.issue) {
     const issue = await d.github.issue(spec.issue);
@@ -333,7 +335,8 @@ export async function createGoal(raw: unknown, d: IterationDependencies): Promis
   const state: GoalState = { schemaVersion: 1, id: taskId([d.config.repository, target.sha, spec, randomUUID()]),
     repository: d.config.repository, spec, configHash: taskId(d.config), branch: target.branch, sha: target.sha,
     issueDigest: digest, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'planned',
-    steps: [], completed: [], changes: [], reports: [], rounds: 0, calls: 0, tokens: 0, elapsedMs: 0, notes: [] };
+    steps: [], completed: [], changes: [], reports: [], rounds: 0, calls: 0, tokens: 0, elapsedMs: 0, notes: [],
+    candidateId: metadata.candidateId, evaluationRunId: metadata.evaluationRunId };
   await save(state, d);
   const start = Date.now();
   state.activeSince = new Date(start).toISOString(); await save(state, d);

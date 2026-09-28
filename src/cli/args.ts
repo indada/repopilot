@@ -6,7 +6,8 @@ export function parseCli(args: string[]) {
     once: { type: 'boolean' }, help: { type: 'boolean' }, version: { type: 'boolean' }, format: { type: 'string' },
     status: { type: 'string' }, limit: { type: 'string' }, offset: { type: 'string' },
     apply: { type: 'boolean' }, expected: { type: 'string' }, issue: { type: 'string' }, branch: { type: 'string' },
-    spec: { type: 'string' }, suite: { type: 'string' }
+    spec: { type: 'string' }, suite: { type: 'string' }, profile: { type: 'string' },
+    baseline: { type: 'string' }, candidate: { type: 'string' }
   } });
 }
 export type CliValues = ReturnType<typeof parseCli>['values'];
@@ -27,6 +28,11 @@ export const help = `RepoPilot ${VERSION} — local-first repository verificatio
   repopilot discover --config config.local.json [--apply --expected PREVIEW_TOKEN]
   repopilot experiences --config config.local.json
   repopilot evals --config config.local.json [--suite SUITE]
+  repopilot evals replay --spec suite.json --profile PROFILE --config config.local.json
+  repopilot evals gate --suite SUITE --baseline PROFILE --candidate PROFILE --config config.local.json
+  repopilot candidates refresh|list --config config.local.json
+  repopilot candidates show|reproduce|run CANDIDATE_ID --config config.local.json
+  repopilot candidates approve CANDIDATE_ID --expected EVIDENCE_DIGEST --config config.local.json
 
   npm run dev -- check --config config.local.json --repo /path/to/repo --base main --head feature
   npm run dev -- watch --config config.local.json [--once]

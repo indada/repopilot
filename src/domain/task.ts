@@ -4,4 +4,4 @@ export interface RunInput { base: Snapshot; head: Snapshot; baseSha: string; hea
   repoPath?: string; runKey?: string; rerunOf?: string; issue?: IssueSource;
   implementation?: { mode: 'feature' | 'bugfix'; acceptance: string[]; allowedPaths: string[] };
   previousPatches?: string[];
-  keepBudget?: boolean; }
+  keepBudget?: boolean; reproductionOnly?: boolean; }

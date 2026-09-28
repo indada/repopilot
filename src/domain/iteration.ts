@@ -29,6 +29,13 @@ export interface WaveAudit {
   pathOwners: Record<string, string>; reportIds: Record<string, string>;
   reason?: string; updatedAt: string;
 }
+export const strategyGateSchema = z.object({ suite: id, baselineProfile: id, candidateProfile: id,
+  minCases: z.number().int().min(1).max(100).default(3),
+  minVerificationRate: z.number().min(0).max(1).default(0.9),
+  maxCallsRatio: z.number().positive().max(10).default(1.5),
+  maxTokensRatio: z.number().positive().max(10).default(1.5),
+  maxElapsedRatio: z.number().positive().max(10).default(2)
+}).strict();
 export const iterationSchema = z.object({
   maxSteps: z.number().int().min(1).max(20).default(8),
   maxRounds: z.number().int().min(1).max(20).default(3),
@@ -50,6 +57,7 @@ export const iterationSchema = z.object({
     requireIssueClosed: z.boolean().default(true)
   }).strict().optional(),
   collaboration: collaborationSchema.optional(),
+  strategyGate: strategyGateSchema.optional(),
   preview: runnerSchema.optional()
 }).strict();
 export type IterationConfig = z.infer<typeof iterationSchema>;
@@ -62,6 +70,8 @@ export interface GoalState {
     attempts: number; reportId?: string; reason?: string; updatedAt: string }>;
   reports: string[]; rounds: number; calls: number; tokens: number; elapsedMs: number;
   activeSince?: string;
+  candidateId?: string;
+  evaluationRunId?: string;
   queued?: boolean;
   active?: { step: string; runKey: string }; notes: string[];
   parallelBatch?: { id?: string; baseDigest: string; priorReports: string[];

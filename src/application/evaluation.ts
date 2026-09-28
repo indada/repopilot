@@ -1,5 +1,6 @@
 import { taskId } from '../domain/identity.js';
 import type { GoalState } from '../domain/iteration.js';
+import type { IterationConfig } from '../domain/iteration.js';
 
 export interface EvaluationRecord {
   goalId: string;
@@ -7,6 +8,9 @@ export interface EvaluationRecord {
   case: string;
   profile: string;
   caseDigest: string;
+  configHash: string;
+  replayId?: string;
+  goalStatus: GoalState['status'];
   outcome: 'healthy' | 'regressed' | 'published' | 'verified' | 'failed';
   completed: number;
   steps: number;
@@ -32,6 +36,7 @@ export function evaluateGoals(goals: GoalState[], suite?: string) {
     .map(goal => {
       const { evaluation: _evaluation, ...spec } = goal.spec;
       return { goalId: goal.id, ...goal.spec.evaluation!, caseDigest: taskId([goal.repository, goal.sha, spec]),
+        configHash: goal.configHash, replayId: goal.evaluationRunId, goalStatus: goal.status,
         outcome: outcome(goal), completed: goal.completed.length, steps: goal.steps.length, rounds: goal.rounds,
         calls: goal.calls, tokens: goal.tokens, elapsedMs: goal.elapsedMs };
     })
@@ -58,4 +63,56 @@ export function evaluateGoals(goals: GoalState[], suite?: string) {
   const results = records.map(({ goalId: _goalId, ...record }) => record);
   return { schemaVersion: 1, suite: suite ?? null, digest: taskId(results), evidenceDigest: taskId(records),
     duplicateKeys, inconsistentCases, profiles, records };
+}
+
+type GateConfig = NonNullable<IterationConfig['strategyGate']>;
+const success = (record: EvaluationRecord) => ['verified', 'published', 'healthy'].includes(record.outcome);
+const sum = (records: EvaluationRecord[], key: 'calls' | 'tokens' | 'elapsedMs') =>
+  records.reduce((total, record) => total + record[key], 0);
+
+/** Promotion is only considered over the exact same pinned, terminal replay cases. */
+export function compareEvaluationProfiles(goals: GoalState[], config: GateConfig,
+  expectedCandidateConfigHash?: string) {
+  const evaluation = evaluateGoals(goals.filter(goal => [config.baselineProfile, config.candidateProfile]
+    .includes(goal.spec.evaluation?.profile ?? '')), config.suite);
+  const reasons: string[] = [];
+  const baseline = evaluation.records.filter(record => record.profile === config.baselineProfile);
+  const candidate = evaluation.records.filter(record => record.profile === config.candidateProfile);
+  if (config.baselineProfile === config.candidateProfile) reasons.push('Baseline and candidate profiles must differ.');
+  if (baseline.length < config.minCases || candidate.length < config.minCases)
+    reasons.push(`Each profile needs at least ${config.minCases} fixed cases.`);
+  if (evaluation.duplicateKeys.length) reasons.push('Duplicate suite/profile/case records prevent comparison.');
+  if (evaluation.inconsistentCases.length) reasons.push('Case inputs differ between profiles.');
+  if ([...baseline, ...candidate].some(record => !record.replayId))
+    reasons.push('Every compared case must come from a fixed-case replay.');
+  if ([...baseline, ...candidate].some(record => ['planned', 'running', 'paused', 'stale'].includes(record.goalStatus)))
+    reasons.push('All compared replays must reach a terminal, non-stale result.');
+  if (new Set(baseline.map(record => record.configHash)).size !== 1
+    || new Set(candidate.map(record => record.configHash)).size !== 1)
+    reasons.push('A profile contains more than one configuration.');
+  if (expectedCandidateConfigHash && candidate.some(record => record.configHash !== expectedCandidateConfigHash))
+    reasons.push('Candidate profile does not match the current controller configuration.');
+  const byCase = new Map(candidate.map(record => [record.case, record]));
+  if (baseline.length !== candidate.length || baseline.some(record => !byCase.has(record.case)))
+    reasons.push('Profiles must contain the same case IDs.');
+  for (const record of baseline) {
+    const other = byCase.get(record.case);
+    if (!other || other.caseDigest !== record.caseDigest) continue;
+    if (success(record) && !success(other)) reasons.push(`Candidate lost a verified case: ${record.case}.`);
+  }
+  const verificationRate = candidate.length ? candidate.filter(success).length / candidate.length : 0;
+  if (verificationRate < config.minVerificationRate) reasons.push('Candidate verification rate is below the configured minimum.');
+  if (candidate.some(record => record.outcome === 'regressed')) reasons.push('Candidate has a post-merge regression.');
+  for (const [key, limit] of [
+    ['calls', config.maxCallsRatio], ['tokens', config.maxTokensRatio], ['elapsedMs', config.maxElapsedRatio]
+  ] as const) {
+    const baseCost = sum(baseline, key), candidateCost = sum(candidate, key);
+    if (baseCost === 0 ? candidateCost > 0 : candidateCost > baseCost * limit)
+      reasons.push(`Candidate ${key} exceeds the configured ratio.`);
+  }
+  return { schemaVersion: 1, suite: config.suite, baselineProfile: config.baselineProfile,
+    candidateProfile: config.candidateProfile, eligible: reasons.length === 0, reasons,
+    cases: { baseline: baseline.length, candidate: candidate.length }, verificationRate,
+    evidenceDigest: evaluation.evidenceDigest,
+    decisionDigest: taskId([config, expectedCandidateConfigHash, evaluation.evidenceDigest, reasons]) };
 }

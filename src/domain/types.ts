@@ -46,6 +46,7 @@ export interface Report {
   tests: { base: TestResult; head: TestResult; repaired?: TestResult };
   plan?: TestPlan; evidence: TestEvidence[]; repairs: RepairAttempt[];
   testStability?: { status: 'stable' | 'unstable' | 'inconclusive'; reason: string };
+  reproduction?: { reproduced: boolean; reason: string };
   testAssessment?: { eligible: boolean; reasons: string[]; cases: { id: string; outcome: 'regression' | 'new_behavior_verified' | 'preserved' | 'unresolved'; reason: string }[] };
   changes: RepairChange[]; attempts: number; notes: string[]; createdAt: string;
   executions: number; retryAfter?: string; retryable: boolean;

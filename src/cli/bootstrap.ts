@@ -3,6 +3,7 @@ import { CodexAgentTeam } from '../adapters/codex/team.js';
 import { GitHub } from '../adapters/github/client.js';
 import { Store } from '../adapters/storage/file-store.js';
 import { FileIterationStore } from '../adapters/storage/iteration-store.js';
+import { FileCandidateStore } from '../adapters/storage/candidate-store.js';
 import { gitRepository } from '../adapters/storage/repository.js';
 import { DockerRunner } from '../adapters/testing/docker-runner.js';
 import { DockerRecoveryResources } from '../adapters/testing/recovery-resources.js';
@@ -17,6 +18,7 @@ import { inspectTasks, runTask } from './commands/tasks.js';
 import { watchCommand } from './commands/watch.js';
 import { doctor, initialize } from './commands/setup.js';
 import { executeGoals, inspectGoals, validateGoalCommand } from './commands/goals.js';
+import { executeCandidates, inspectCandidates, validateCandidateCommand } from './commands/candidates.js';
 import { loadConfig } from './config.js';
 import { reportExitCode, reportSummary } from './output.js';
 import type { Output, Runtime } from './runtime.js';
@@ -28,7 +30,7 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   if (values.help || !command) { output.write(help); return 0; }
   if (command === 'init') return initialize(values, output);
   if (command === 'doctor') return doctor(values, output);
-  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
+  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
   const config = await loadConfig(values.config), store = new Store(config.dataDir);
   if (command === 'recover') {
     const lock = new ControllerLock(config.dataDir), resources = new DockerRecoveryResources(config.dataDir);
@@ -41,8 +43,11 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   }
   const action = positionals[1], task = positionals[2];
   validateGoalCommand(command, action, task, values);
-  const goals = new FileIterationStore(config.dataDir);
-  if (await inspectGoals(command, action, task, values, config, goals, output)) return 0;
+  if (command === 'candidates') validateCandidateCommand(action, task, values);
+  const goals = new FileIterationStore(config.dataDir), candidates = new FileCandidateStore(config.dataDir);
+  const inspection = await inspectGoals(command, action, task, values, config, goals, output);
+  if (inspection) return inspection === 'ineligible' ? 1 : 0;
+  if (command === 'candidates' && await inspectCandidates(action, task, values, config, candidates, output)) return 0;
   if (command === 'tasks' && await inspectTasks(action, task, values, config, store, output)) return 0;
   const release = await store.acquire();
   const abort = new AbortController(), stop = () => abort.abort();
@@ -57,10 +62,12 @@ export async function main(args: string[], output: Output = standardOutput): Pro
         : new DockerCodexAgent(config.agent, config.dataDir,
           config.runner ? describeTestEnvironment(config.runner) : undefined)) : undefined,
       github };
-    if (['goals', 'iterate', 'discover'].includes(command)) return executeGoals(command, action, task, values, {
+    const automation = {
       ...runtime, goals, github,
       previewRunner: config.iteration?.preview ? new DockerRunner(config.iteration.preview, config.dataDir) : undefined
-    }, output);
+    };
+    if (command === 'candidates') return executeCandidates(action!, task, values, { ...automation, candidates }, output);
+    if (['goals', 'iterate', 'discover', 'evals'].includes(command)) return executeGoals(command, action, task, values, automation, output);
     if (command === 'watch') { await watchCommand(values, runtime, output); return 0; }
     if (command === 'fix') {
       const report = await fixIssue(Number(values.issue), values.branch, { ...runtime, github });

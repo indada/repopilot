@@ -143,6 +143,17 @@ async function executePipeline(input: RunInput, config: Config, store: Store, ru
       }
     }
     const regression = eligible && red.status === 'failed' && red.structured;
+    if (input.reproductionOnly) {
+      if (!input.issue || !input.implementation || input.implementation.mode !== 'bugfix')
+        throw new Error('Reproduction-only execution requires a scoped bugfix Issue.');
+      if (regression) report.testStability = assessStability(red, await run(working, 'repeat-head'));
+      const reproducedFailure = regression && report.testStability?.status === 'stable';
+      report.reproduction = { reproduced: !!reproducedFailure,
+        reason: reproducedFailure ? 'Pinned Issue failure reproduced with stable generated test identities.'
+          : 'Pinned Issue failure was not demonstrated with stable structured evidence.' };
+      report.status = 'needs_attention'; report.notes.push(report.reproduction.reason);
+      await save(); return report;
+    }
     if (!passed(report.tests.base)) report.notes.push('Base tests already fail or lack structured passing evidence; automatic repair is blocked.');
     if (!eligible) report.notes.push('Test evidence requires maintainer review.');
     const preservedBase = preservesTests(report.tests.base, report.tests.head);
