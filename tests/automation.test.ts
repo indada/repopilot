@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { claimIssues, discover, maintainGoal, type AutomationDependencies } from '../src/application/automation.js';
+import { discover, maintainGoal, type AutomationDependencies } from '../src/application/automation.js';
 import { GitHub } from '../src/adapters/github/client.js';
 import { configSchema } from '../src/domain/config.js';
 import { feedbackDigest, integrateBase } from '../src/domain/feedback.js';
@@ -30,12 +30,8 @@ async function fixture() {
   return { d: dependencies, state, feedback, goals };
 }
 
-test('automatic intake and review maintenance never truncate oversized requirements', async () => {
+test('review maintenance never truncates oversized requirements', async () => {
   const { d, state, feedback } = await fixture();
-  const issue: QueueIssue = { number: 7, title: 'Implement complete requirements', body: 'x'.repeat(2000), state: 'open',
-    user: { login: 'maintainer' }, labels: [{ name: 'agent-ready' }], created_at: '2026-01-01T00:00:00Z' };
-  d.github.issues = async () => [issue]; d.github.issue = async () => issue;
-  await assert.rejects(claimIssues(d), /never silently truncated/);
   feedback.comments = [{ id: 'long-review', author: 'maintainer', body: 'x'.repeat(2001) }];
   assert.equal((await maintainGoal(state.id, d)).status, 'needs_attention');
   assert.equal(state.calls, 0);
@@ -101,13 +97,6 @@ test('failed follow-ups may retry with fresh run keys but remain budget bounded'
   assert.notEqual(state.maintenance!.reportId, previous);
   state.rounds = d.config.iteration!.maxRounds;
   await assert.rejects(maintainGoal(state.id, d), /budget exhausted/);
-});
-
-test('queue cannot replenish an existing Issue budget by editing its body', async () => {
-  const { d, state } = await fixture();
-  state.spec.issue = 12; state.issueDigest = 'old'; state.status = 'needs_attention';
-  d.github.issues = async () => [{ number: 12, title: 'A changed Issue', body: 'Updated request after budget exhaustion', state: 'open', user: { login: 'maintainer' }, labels: [{ name: 'agent-ready' }], created_at: '' }];
-  assert.deepEqual(await claimIssues(d), []);
 });
 
 test('discovery requires an exact preview and publication policy, then deduplicates proposals', async () => {

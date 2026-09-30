@@ -47,7 +47,9 @@ export const iterationSchema = z.object({
     allowedPaths: z.array(z.string().refine(safePath)).min(1).max(30),
     featureLabel: z.string().min(1).default('enhancement'),
     priorityLabels: z.array(z.string().min(1)).max(10).default([]),
-    maxPerRun: z.number().int().min(1).max(10).default(1)
+    maxPerRun: z.number().int().min(1).max(10).default(1),
+    autoApprove: z.boolean().default(false),
+    maxFailures: z.number().int().min(1).max(10).default(3)
   }).strict().optional(),
   maintenance: z.object({ trustedReviewers: z.array(z.string().min(1)).min(1).max(50),
     requiredChecks: z.array(z.string().min(1)).min(1).max(30)

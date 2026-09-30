@@ -63,7 +63,7 @@ export async function main(args: string[], output: Output = standardOutput): Pro
           config.runner ? describeTestEnvironment(config.runner) : undefined)) : undefined,
       github };
     const automation = {
-      ...runtime, goals, github,
+      ...runtime, goals, github, candidates,
       previewRunner: config.iteration?.preview ? new DockerRunner(config.iteration.preview, config.dataDir) : undefined
     };
     if (command === 'candidates') return executeCandidates(action!, task, values, { ...automation, candidates }, output);

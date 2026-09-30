@@ -89,6 +89,8 @@ The development line after 1.5.0 adds opt-in bounded execution of independent DA
 
 It also adds an [evidence-driven candidate queue](docs/CANDIDATE-ITERATION.md) and [fixed-case strategy replay and admission](docs/POST-MERGE-EVALUATION.md). CI, policy, review, baseline and post-merge signals are ranked with their evidence; only a trusted Issue with a stable test reproduction can be approved into an executable goal. Pinned evaluation suites compare the same cases across profiles and can block automatic iteration when verification or cost limits regress. These development features are not part of the 1.5.0 portable release.
 
+The development-line `iterate` command now runs Issue intake through this same queue. It reproduces eligible bugfix or feature Issues first, waits for approval by default, and resumes one linked goal after a crash. An explicit `iteration.queue.autoApprove=true` permits stable candidates to continue automatically to a verified draft-PR proposal; changed Issue evidence, revoked labels, exhausted budgets and failed strategy gates prevent new admission.
+
 - Pinned base/head SHAs and title/body digest; continuous freshness checks and cancellation.
 - Scoped literal rules and JavaScript/TypeScript AST call rules, conflict detection and expiring exceptions.
 - Nested AGENTS.md semantic review with verbatim rule/code citations and historical finding comparison.

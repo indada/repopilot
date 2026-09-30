@@ -39,7 +39,9 @@ Add the following `iteration` section to a trusted controller configuration with
       "allowedPaths": ["src", "tests"],
       "featureLabel": "enhancement",
       "priorityLabels": ["priority:high", "priority:normal"],
-      "maxPerRun": 1
+      "maxPerRun": 1,
+      "autoApprove": false,
+      "maxFailures": 3
     },
     "maintenance": {
       "trustedReviewers": ["YOUR_GITHUB_LOGIN"],
@@ -62,9 +64,9 @@ npm run dev -- goals maintain GOAL_ID --config config.local.json
 npm run dev -- goals track GOAL_ID --config config.local.json
 ```
 
-`iterate` polls open Issues from the configured repository when `queue` is configured. It requires all configured labels and a trusted **Issue author**, orders candidates by priority labels then creation time, and uses the Issue title/body as the acceptance request. Maintainers should supply precise, independently testable Issue descriptions. `enhancement` selects feature mode; other eligible Issues use bugfix mode. An already claimed Issue number is not automatically restarted, even if its text changes, preventing edits from replenishing the budget. Resume unchanged work explicitly or create a new goal for revised inputs. Ctrl+C stops polling and requests cancellation of active execution. This queue does not choose a product roadmap.
+In the development line after 1.5.0, `iterate` polls open Issues through the [evidence-driven candidate queue](CANDIDATE-ITERATION.md). It requires all configured labels and a trusted **Issue author**, ranks candidates by priority label, and uses the complete Issue title/body as the acceptance request. Maintainers should supply precise, independently testable Issue descriptions. The configured `featureLabel` selects feature mode; other eligible Issues use bugfix mode. Each candidate must first demonstrate missing behavior on a pinned commit with stable independent test evidence. The default `autoApprove=false` stops there for manual approval. Explicit `autoApprove=true` allows eligible candidates to continue to a bounded goal and optional draft PR. Existing queue configurations therefore no longer execute Issues directly after an upgrade. An Issue that already owns a goal is never automatically restarted when edited, preventing its budget from being replenished. Ctrl+C stops polling and requests cancellation of active execution. This queue does not choose a product roadmap.
 
-Automatic intake accepts complete Issue requests of 8–2000 characters and titles of 8–200 characters; larger requests need an explicit goal with separate acceptance criteria. Review maintenance accepts at most 20 applicable comments of up to 2000 characters each. Oversized requests stop for inspection instead of silently truncating requirements.
+Automatic intake accepts complete Issue requests of 8–2000 characters and titles of 8–200 characters; larger requests need an explicit goal with separate acceptance criteria. Review maintenance accepts at most 20 applicable comments of up to 2000 characters each. Oversized requests become blocked candidates instead of silently truncating requirements.
 
 When `maintenance` is configured, each polling cycle also processes published goals serially in rotating batches, up to `queue.maxPerRun` (one without a queue). Paused goals are skipped. Individual maintenance errors are reported and stop automatic follow-up for that goal for the current polling session. Retries share the existing goal budget and retain failed patch fingerprints. You can configure maintenance without an Issue queue. `goals maintain` runs the same follow-up explicitly for a selected goal.
 

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { claimIssues, discover, maintainGoal, trackGoal, type AutomationDependencies } from '../../application/automation.js';
+import { discover, maintainGoal, trackGoal, type AutomationDependencies } from '../../application/automation.js';
+import { processIssueCandidates } from '../../application/candidates.js';
 import { compareEvaluationProfiles, evaluateGoals } from '../../application/evaluation.js';
 import { replayEvaluationSuite } from '../../application/evaluation-replay.js';
 import { createGoal, runGoal } from '../../application/iteration.js';
@@ -8,6 +9,7 @@ import type { Config } from '../../domain/config.js';
 import { strategyGateSchema, type GoalState } from '../../domain/iteration.js';
 import { taskId } from '../../domain/identity.js';
 import type { IterationStore } from '../../ports/iteration.js';
+import type { CandidateStore } from '../../ports/candidate.js';
 import type { CliValues } from '../args.js';
 import type { Output } from '../runtime.js';
 
@@ -86,7 +88,7 @@ export async function inspectGoals(command: string, action: string | undefined, 
   return true;
 }
 export async function executeGoals(command: string, action: string | undefined, id: string | undefined, values: CliValues,
-  deps: AutomationDependencies, output: Output): Promise<number> {
+  deps: AutomationDependencies & { candidates?: CandidateStore }, output: Output): Promise<number> {
   if (command === 'evals' && action === 'replay') {
     const result = await replayEvaluationSuite(JSON.parse(await readFile(values.spec!, 'utf8')), values.profile!, deps);
     emit(output, result); return result.cases.some(item => !['verified', 'published'].includes(item.status)) ? 1 : 0;
@@ -97,6 +99,7 @@ export async function executeGoals(command: string, action: string | undefined, 
     let maintenanceOffset = 0;
     do {
       if (deps.signal.aborted) return 0;
+      let queueFailure = false;
       try {
         if (deps.config.iteration?.maintenance || deps.config.iteration?.postMerge) {
           const candidates = (await deps.goals.list()).filter(s => s.repository === deps.config.repository && s.status === 'published'
@@ -124,18 +127,23 @@ export async function executeGoals(command: string, action: string | undefined, 
           }
         }
         if (deps.config.iteration?.queue) {
+          if (!deps.candidates) throw new Error('Issue iteration requires a candidate store.');
+          let eligible = true, strategyGate;
           if (deps.config.iteration.strategyGate) {
-            const decision = compareEvaluationProfiles((await deps.goals.list())
+            strategyGate = compareEvaluationProfiles((await deps.goals.list())
               .filter(goal => goal.repository === deps.config.repository), deps.config.iteration.strategyGate,
               taskId({ ...deps.config, publish: false }));
-            if (!decision.eligible) throw new Error(`Strategy gate blocked new Issue intake: ${decision.reasons.join(' ')}`);
+            eligible = strategyGate.eligible;
           }
-          emit(output, { claimed: await claimIssues(deps) });
+          const queue = await processIssueCandidates({ ...deps, candidates: deps.candidates }, eligible);
+          emit(output, { queue, strategyGate });
+          for (const error of queue.errors) output.error(error.error);
+          queueFailure = !eligible || queue.errors.length > 0;
         }
         if (!deps.config.iteration?.queue && !deps.config.iteration?.maintenance && !deps.config.iteration?.postMerge) throw new Error('iterate requires iteration.queue or iteration.maintenance, or iteration.postMerge.');
       }
       catch (error) { if (deps.signal.aborted) return 0; throw error; }
-      if (values.once) return 0;
+      if (values.once) return queueFailure ? 1 : 0;
       try { await delay(deps.config.pollSeconds * 1000, undefined, { signal: deps.signal }); }
       catch (error) { if (deps.signal.aborted) return 0; throw error; }
     } while (!deps.signal.aborted);

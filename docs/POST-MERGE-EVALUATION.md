@@ -105,4 +105,4 @@ npm run dev -- evals gate --suite core-maintenance --baseline baseline --candida
 }
 ```
 
-When `strategyGate` is configured, `iterate` checks it before claiming new Issues and stops intake if the candidate has not passed. Manual candidate approval and maintainer review remain separate decisions.
+When `strategyGate` is configured, `iterate` checks it before advancing new Issue candidates. A failed gate defers new reproduction and automatic approval; already approved or running candidates can still resume. Manual candidate approval and maintainer review remain separate decisions.

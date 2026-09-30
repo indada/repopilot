@@ -46,6 +46,8 @@ export interface Candidate {
     first?: TestResult; second?: TestResult; at: string; reason: string };
   goalId?: string;
   reason?: string;
+  failureCount?: number;
+  retryAfter?: string;
 }
 
 export function candidateFromSignal(signal: CandidateSignal, previous?: Candidate, now = new Date().toISOString()): Candidate {
@@ -56,12 +58,15 @@ export function candidateFromSignal(signal: CandidateSignal, previous?: Candidat
   return { schemaVersion: 1, id, repository: signal.repository, kind: signal.kind,
     evidenceDigest, commit: signal.commit, branch: signal.branch, issue: signal.issue,
     sourceGoalId: signal.goalId, reportId: signal.reportId, path: signal.path, ruleId: signal.ruleId,
-    title: signal.title.slice(0, 200),
+    // Issue title limits are enforced at intake; preserve the source text so it cannot be silently shortened.
+    title: signal.kind === 'issue' ? signal.title : signal.title.slice(0, 200),
     detail: signal.detail.slice(0, 12000), priority: signal.priority, priorityReasons: signal.priorityReasons,
     status: changed ? 'stale' : previous?.status ?? 'observed',
     firstSeenAt: previous?.firstSeenAt ?? now, updatedAt: changed ? now : previous?.updatedAt ?? now,
     reproduction: changed ? undefined : previous?.reproduction,
-    goalId: previous?.goalId, reason: changed ? 'Source evidence changed; prior reproduction and approval remain invalid.' : previous?.reason };
+    goalId: previous?.goalId, reason: changed ? 'Source evidence changed; prior reproduction and approval remain invalid.' : previous?.reason,
+    failureCount: changed ? undefined : previous?.failureCount,
+    retryAfter: changed ? undefined : previous?.retryAfter };
 }
 
 export function orderCandidates(candidates: Candidate[]): Candidate[] {

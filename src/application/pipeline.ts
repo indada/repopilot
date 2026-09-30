@@ -119,9 +119,10 @@ async function executePipeline(input: RunInput, config: Config, store: Store, ru
           planned.handoff.status = 'rejected'; throw new Error('Implementation tests must cover every acceptance criterion verbatim within the allowed paths.');
         }
       }
-      if (input.issue && report.plan.scenarios.some(s => s.kind !== 'regression' || !s.requirementQuote || s.requirementQuote.trim().length < 8
+      const issueKind = input.implementation?.mode === 'feature' ? 'new_behavior' : 'regression';
+      if (input.issue && report.plan.scenarios.some(s => s.kind !== issueKind || !s.requirementQuote || s.requirementQuote.trim().length < 8
         || !description.includes(s.requirementQuote))) {
-        planned.handoff.status = 'rejected'; throw new Error('Issue reproduction requires regression scenarios with exact Issue requirement quotes.');
+        planned.handoff.status = 'rejected'; throw new Error('Issue reproduction requires matching scenarios with exact Issue requirement quotes.');
       }
       working = applyChanges(input.head, report.plan.tests);
       baseline = await run(applyChanges(input.base, report.plan.tests), 'planned-base');
@@ -144,13 +145,13 @@ async function executePipeline(input: RunInput, config: Config, store: Store, ru
     }
     const regression = eligible && red.status === 'failed' && red.structured;
     if (input.reproductionOnly) {
-      if (!input.issue || !input.implementation || input.implementation.mode !== 'bugfix')
-        throw new Error('Reproduction-only execution requires a scoped bugfix Issue.');
+      if (!input.issue || !input.implementation)
+        throw new Error('Reproduction-only execution requires a scoped Issue.');
       if (regression) report.testStability = assessStability(red, await run(working, 'repeat-head'));
       const reproducedFailure = regression && report.testStability?.status === 'stable';
       report.reproduction = { reproduced: !!reproducedFailure,
-        reason: reproducedFailure ? 'Pinned Issue failure reproduced with stable generated test identities.'
-          : 'Pinned Issue failure was not demonstrated with stable structured evidence.' };
+        reason: reproducedFailure ? 'Pinned Issue behavior gap reproduced with stable generated test identities.'
+          : 'Pinned Issue behavior gap was not demonstrated with stable structured evidence.' };
       report.status = 'needs_attention'; report.notes.push(report.reproduction.reason);
       await save(); return report;
     }

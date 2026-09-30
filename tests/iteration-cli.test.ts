@@ -86,13 +86,20 @@ test('iteration polling exits on cancellation and refuses an unconfigured loop',
   assert.equal(await executeGoals('iterate', undefined, undefined, {}, deps, output), 0);
 });
 
-test('automatic Issue intake stops when the configured strategy lacks replay evidence', async () => {
-  const output = { write: (_line: string) => {}, error: (_line: string) => {} };
+test('strategy gate defers new Issue candidates without bypassing their state machine', async () => {
+  await mkdir('.cache/tests', { recursive: true });
+  const root = await mkdtemp(resolve('.cache/tests/gated-intake-'));
+  const lines: string[] = [], output = { write: (line: string) => lines.push(line), error: (_line: string) => {} };
   const config = configSchema.parse({ repository: 'owner/repo', iteration: {
     queue: { labels: ['agent-ready'], trustedAuthors: ['maintainer'], allowedPaths: ['src'] },
     strategyGate: { suite: 'core-suite', baselineProfile: 'baseline', candidateProfile: 'candidate' }
   } });
   const deps = { signal: new AbortController().signal, config, goals: { list: async () => [] },
-    github: { issues: async () => assert.fail('Gate must run before Issue intake') } } as unknown as AutomationDependencies;
-  await assert.rejects(executeGoals('iterate', undefined, undefined, { once: true }, deps, output), /Strategy gate blocked/);
+    candidates: new FileCandidateStore(root), github: { target: async () => ({ branch: 'main', sha: 'a'.repeat(40) }),
+      issues: async () => [{ number: 7, title: 'Reject negative quantities', body: 'Negative quantities must fail.',
+        state: 'open', user: { login: 'maintainer' }, labels: [{ name: 'agent-ready' }] }] }
+  } as unknown as AutomationDependencies & { candidates: FileCandidateStore };
+  assert.equal(await executeGoals('iterate', undefined, undefined, { once: true }, deps, output), 1);
+  assert.equal(JSON.parse(lines.at(-1)!).strategyGate.eligible, false);
+  assert.equal((await deps.candidates.list())[0]?.status, 'observed');
 });

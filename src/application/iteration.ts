@@ -323,7 +323,8 @@ async function design(state: GoalState, base: Snapshot, d: IterationDependencies
   } finally { await settle(); }
 }
 export async function createGoal(raw: unknown, d: IterationDependencies,
-  metadata: { candidateId?: string; evaluationRunId?: string; expectedSha?: string } = {}): Promise<GoalState> {
+  metadata: { candidateId?: string; evaluationRunId?: string; expectedSha?: string;
+    expectedIssueDigest?: string } = {}): Promise<GoalState> {
   const limits = enabled(d), spec = goalSpecSchema.parse(raw), target = await d.github.target(spec.branch);
   if (metadata.expectedSha && target.sha !== metadata.expectedSha) throw new Error('Goal target changed before creation.');
   let digest: string | undefined;
@@ -331,6 +332,15 @@ export async function createGoal(raw: unknown, d: IterationDependencies,
     const issue = await d.github.issue(spec.issue);
     if (issue.pull_request || issue.state !== 'open') throw new Error('Goal requires an open Issue.');
     digest = issueDigest(issue);
+    if (metadata.expectedIssueDigest && digest !== metadata.expectedIssueDigest)
+      throw new Error('Goal Issue changed before creation.');
+    if (metadata.candidateId) {
+      const queue = d.config.iteration?.queue;
+      const source = issue as typeof issue & { user?: { login: string }; labels?: { name: string }[] };
+      if (!queue || !queue.trustedAuthors.includes(source.user?.login ?? '')
+        || !queue.labels.every(label => source.labels?.some(item => item.name === label)))
+        throw new Error('Goal Issue lost queue authorization before creation.');
+    }
   }
   const state: GoalState = { schemaVersion: 1, id: taskId([d.config.repository, target.sha, spec, randomUUID()]),
     repository: d.config.repository, spec, configHash: taskId(d.config), branch: target.branch, sha: target.sha,

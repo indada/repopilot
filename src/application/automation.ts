@@ -7,45 +7,11 @@ import { changedPaths } from '../domain/snapshot.js';
 import { passed, preservesTests } from '../domain/test-evidence.js';
 import type { AutomationGitHub } from '../ports/automation.js';
 import { withFreshness } from '../shared/control.js';
-import { createGoal, loadGoal, runGoal, type IterationDependencies } from './iteration.js';
+import { loadGoal, type IterationDependencies } from './iteration.js';
 import { trackPostMerge } from './post-merge.js';
 import { runPipeline } from './pipeline.js';
 
 export type AutomationDependencies = IterationDependencies & { github: IterationDependencies['github'] & AutomationGitHub };
-export async function claimIssues(d: AutomationDependencies) {
-  const queue = d.config.iteration?.queue;
-  if (!queue) throw new Error('Configure iteration.queue labels, trustedAuthors and allowedPaths first.');
-  const goals = await d.goals.list(), items = await d.github.issues('open');
-  const eligible = items.filter(i => !i.pull_request && i.state === 'open' && queue.trustedAuthors.includes(i.user.login)
-    && queue.labels.every(label => i.labels.some(l => l.name === label)));
-  const priority = (labels: { name: string }[]) => {
-    const index = queue.priorityLabels.findIndex(l => labels.some(v => v.name === l)); return index < 0 ? queue.priorityLabels.length : index;
-  };
-  eligible.sort((a, b) => priority(a.labels) - priority(b.labels) || a.created_at.localeCompare(b.created_at) || a.number - b.number);
-  const results = [];
-  for (const issue of eligible) {
-    d.signal.throwIfAborted();
-    // Once claimed, even a paused/failed goal needs explicit operator action; polling never resets budgets.
-    if (goals.some(g => g.repository === d.config.repository && g.spec.issue === issue.number)) continue;
-    const latest = await d.github.issue(issue.number) as typeof issue;
-    if (latest.state !== 'open' || latest.pull_request || issueDigest(latest) !== issueDigest(issue)
-      || !queue.trustedAuthors.includes(latest.user.login) || !queue.labels.every(l => latest.labels.some(v => v.name === l))) continue;
-    const text = issue.title + '\n' + (issue.body ?? '');
-    if (text.length > 2000 || text.length < 8 || issue.title.length < 8 || issue.title.length > 200) {
-      throw new Error(`Issue #${issue.number} requires an explicit goal: automatic intake accepts a title of 8–200 characters and a complete request of 8–2000 characters. Requirements are never silently truncated.`);
-    }
-    const state = await createGoal({ title: issue.title, objective: text, issue: issue.number,
-      mode: issue.labels.some(l => l.name === queue.featureLabel) ? 'feature' : 'bugfix',
-      acceptance: [{ id: 'issue-request', text }], allowedPaths: queue.allowedPaths }, d);
-    state.queued = true;
-    if (state.issueDigest !== issueDigest(issue)) { state.status = 'stale'; state.notes.push('Issue changed while being claimed.'); }
-    await d.goals.save(state); goals.push(state);
-    results.push(state.steps.length && state.status === 'planned' && !await d.goals.paused(state.id) ? await runGoal(state.id, d) : state);
-    if (results.length >= queue.maxPerRun) break;
-  }
-  return results;
-}
-
 export async function discover(d: AutomationDependencies, expected?: string) {
   const reports = (await d.store.list()).filter(r => r.repository === d.config.repository && ['needs_attention', 'error'].includes(r.status));
   const proposals = reports.slice(0, 100).flatMap(report => {
