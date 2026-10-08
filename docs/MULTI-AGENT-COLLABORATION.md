@@ -2,7 +2,7 @@
 
 RepoPilot can assign planning, acceptance-test design, implementation and policy review to separate Codex roles while retaining a deterministic controller and independent runner as the authority for state transitions.
 
-Role separation shipped in v1.5.0. Bounded parallel DAG execution described below is available on the development branch after that release.
+Role separation shipped in v1.5.0. Bounded parallel DAG execution described below is included in the v1.6.0 portable release.
 
 ## Enable role isolation
 

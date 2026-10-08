@@ -1,6 +1,6 @@
 # Persistent iteration service
 
-The development line after 1.5.0 adds `serve`: one local controller that accepts GitHub event hints, reconciles missed changes by polling, and runs the existing candidate and PR workflows. It uses the same trusted configuration, pinned evidence, independent tests and optional draft-PR publication gates as the CLI.
+Version 1.6.0 adds `serve`: one local controller that accepts GitHub event hints, reconciles missed changes by polling, and runs the existing candidate and PR workflows. It uses the same trusted configuration, pinned evidence, independent tests and optional draft-PR publication gates as the CLI. Portable users can replace `node dist/cli.js` below with `./repopilot` on Linux/macOS or `.\repopilot.cmd` on Windows.
 
 ## Configuration and startup
 

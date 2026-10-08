@@ -1,6 +1,6 @@
 # Issue reproduction and repair
 
-Available since 1.1.0 through `fix --issue`. For the current release, use the matching 1.5.0 controller and Agent image.
+Available since 1.1.0 through `fix --issue`. For the current release, use the matching 1.6.0 controller and Agent image.
 
 ```sh
 npm run dev -- fix --issue 123 --config config.local.json

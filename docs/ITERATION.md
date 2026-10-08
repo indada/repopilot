@@ -1,6 +1,6 @@
-# Goal-driven iteration (1.5.0)
+# Goal-driven iteration (1.6.0)
 
-These commands are included in the 1.5.0 portable packages. Use the matching `ghcr.io/indada/repopilot-agent:1.5.0` image, or build both the controller and Agent from the same checkout. Existing `check`, `watch` and `fix` workflows remain available without iteration configuration. The examples below use a source installation; portable users replace `npm run dev --` with `./repopilot` on Linux/macOS or `.\repopilot.cmd` on Windows.
+These commands are included in the 1.6.0 portable packages. Use the matching `ghcr.io/indada/repopilot-agent:1.6.0` image, or build both the controller and Agent from the same checkout. Existing `check`, `watch` and `fix` workflows remain available without iteration configuration. The examples below use a source installation; portable users replace `npm run dev --` with `./repopilot` on Linux/macOS or `.\repopilot.cmd` on Windows.
 
 ## Define and execute a goal
 
@@ -55,7 +55,7 @@ Add the following `iteration` section to a trusted controller configuration with
 }
 ```
 
-The JSON above is a configuration fragment, not a complete configuration. Queue, maintenance and post-merge tracking are optional and disabled when absent. `maxRounds` bounds attempts per acceptance criterion, including after replanning; model and elapsed-time budgets cover the whole goal. One controller owns the data directory and serializes state and publication writes. The development branch after v1.5.0 can execute independent ready DAG nodes concurrently when `iteration.collaboration.maxParallel` is explicitly greater than 1; see [multi-Agent collaboration](MULTI-AGENT-COLLABORATION.md).
+The JSON above is a configuration fragment, not a complete configuration. Queue, maintenance and post-merge tracking are optional and disabled when absent. `maxRounds` bounds attempts per acceptance criterion, including after replanning; model and elapsed-time budgets cover the whole goal. One controller owns the data directory and serializes state and publication writes. Version 1.6.0 can execute independent ready DAG nodes concurrently when `iteration.collaboration.maxParallel` is explicitly greater than 1; see [multi-Agent collaboration](MULTI-AGENT-COLLABORATION.md).
 
 ```sh
 npm run dev -- iterate --once --config config.local.json
@@ -64,7 +64,7 @@ npm run dev -- goals maintain GOAL_ID --config config.local.json
 npm run dev -- goals track GOAL_ID --config config.local.json
 ```
 
-In the development line after 1.5.0, `iterate` polls open Issues through the [evidence-driven candidate queue](CANDIDATE-ITERATION.md). It requires all configured labels and a trusted **Issue author**, ranks candidates by priority label, and uses the complete Issue title/body as the acceptance request. Maintainers should supply precise, independently testable Issue descriptions. The configured `featureLabel` selects feature mode; other eligible Issues use bugfix mode. Each candidate must first demonstrate missing behavior on a pinned commit with stable independent test evidence. The default `autoApprove=false` stops there for manual approval. Explicit `autoApprove=true` allows eligible candidates to continue to a bounded goal and optional draft PR. Existing queue configurations therefore no longer execute Issues directly after an upgrade. An Issue that already owns a goal is never automatically restarted when edited, preventing its budget from being replenished. Ctrl+C stops polling and requests cancellation of active execution. This queue does not choose a product roadmap.
+In 1.6.0, `iterate` polls open Issues through the [evidence-driven candidate queue](CANDIDATE-ITERATION.md). It requires all configured labels and a trusted **Issue author**, ranks candidates by priority label, and uses the complete Issue title/body as the acceptance request. Maintainers should supply precise, independently testable Issue descriptions. The configured `featureLabel` selects feature mode; other eligible Issues use bugfix mode. Each candidate must first demonstrate missing behavior on a pinned commit with stable independent test evidence. The default `autoApprove=false` stops there for manual approval. Explicit `autoApprove=true` allows eligible candidates to continue to a bounded goal and optional draft PR. Existing queue configurations therefore no longer execute Issues directly after an upgrade. An Issue that already owns a goal is never automatically restarted when edited, preventing its budget from being replenished. Ctrl+C stops polling and requests cancellation of active execution. This queue does not choose a product roadmap.
 
 Automatic intake accepts complete Issue requests of 8–2000 characters and titles of 8–200 characters; larger requests need an explicit goal with separate acceptance criteria. Review maintenance accepts at most 20 applicable comments of up to 2000 characters each. Oversized requests become blocked candidates instead of silently truncating requirements.
 

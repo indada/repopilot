@@ -1,6 +1,6 @@
 # Evidence-driven candidate iteration
 
-The development line after 1.5.0 adds a local candidate queue. It records possible work from trusted, labeled GitHub Issues, required CI failures on RepoPilot-owned PRs, trusted review comments, error-severity policy findings, structured baseline failures and post-merge regressions. Discovery only records evidence and priority reasons; it does not grant permission to edit code.
+Version 1.6.0 adds a local candidate queue. It records possible work from trusted, labeled GitHub Issues, required CI failures on RepoPilot-owned PRs, trusted review comments, error-severity policy findings, structured baseline failures and post-merge regressions. Discovery only records evidence and priority reasons; it does not grant permission to edit code.
 
 ```sh
 npm run dev -- candidates refresh --config config.local.json

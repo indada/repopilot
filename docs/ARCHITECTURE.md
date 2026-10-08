@@ -55,7 +55,7 @@ Context batches contain whole changed files and authoritative scoped rules, with
 
 ## Scope
 
-Public text repositories, same-repository PRs, one controller with serial task admission and optional bounded DAG parallelism, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, dashboard or automatic merge. The development line adds an optional Webhook receiver alongside polling. Containers/reporters are not hostile-code attestation. See SECURITY.md.
+Public text repositories, same-repository PRs, one controller with serial task admission and optional bounded DAG parallelism, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, dashboard or automatic merge. Version 1.6.0 adds an optional Webhook receiver alongside polling. Containers/reporters are not hostile-code attestation. See SECURITY.md.
 ## Test environment configuration
 
 `domain/runner-config.ts` validates single-command and multi-command execution contracts. `adapters/testing/environment.ts` owns disposable Docker networks, dependency services, readiness checks and cleanup; `docker-runner.ts` runs commands and aggregates their evidence. The application continues to depend only on the Runner port. Command-scoped case IDs preserve independent evidence across multiple suites, while legacy single-command IDs remain unchanged. See [test environments](TEST-ENVIRONMENTS.md).

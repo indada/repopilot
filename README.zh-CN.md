@@ -36,7 +36,7 @@ RepoPilot 是朝这个方向迈出的一步。我们从 GitHub Issue 和 PR 出�
 - **测试与研发效能工程师**：维护 JavaScript、Python、Go 或 Java 测试、Monorepo，以及依赖数据库或 Redis 的测试环境。
 - **基于 Codex 开发工具的开发者**：希望参考 SDK 编排、结构化模型输出、独立验证和有限轮次修复的开源实现。
 
-以上是目标用户与适用场景，不代表已经存在对应客户或使用规模。当前支持公开、文本型仓库；1.5.0 支持 Node、Vitest、pytest、Go 和兼容的 JUnit XML 测试证据。暂不执行 fork PR，不提供浏览器 E2E 或托管控制台。
+以上是目标用户与适用场景，不代表已经存在对应客户或使用规模。当前支持公开、文本型仓库；1.6.0 支持 Node、Vitest、pytest、Go 和兼容的 JUnit XML 测试证据。暂不执行 fork PR，不提供浏览器 E2E 或托管控制台。
 
 ## 与 Codex、OpenAI 的直接关系
 
@@ -81,7 +81,7 @@ flowchart LR
 
 ## 已实现的代码功能
 
-**1.5.0 已包含[目标驱动迭代](docs/ITERATION.md)**：明确验收条件与修改范围、可恢复的分步计划、新功能实现、有限轮次验证反馈、按授权条件领取 Issue、跟进 PR、按版本使用历史经验、根据证据提出改进建议，以及隔离环境内的预发布健康检查与回滚演练。这些能力可直接通过便携包与配套的 1.5.0 Agent 镜像使用。任务选择、合并及生产上线仍由维护者掌握。
+**1.6.0 已包含[目标驱动迭代](docs/ITERATION.md)**：明确验收条件与修改范围、可恢复的分步计划、新功能实现、有限轮次验证反馈、按授权条件领取 Issue、跟进 PR、按版本使用历史经验、根据证据提出改进建议，以及隔离环境内的预发布健康检查与回滚演练。这些能力可直接通过便携包与配套的 1.6.0 Agent 镜像使用。任务选择、合并及生产上线仍由维护者掌握。
 
 ```sh
 npm run dev -- goals plan --spec examples/goal.json --config config.local.json
@@ -91,19 +91,19 @@ npm run dev -- goals maintain GOAL_ID --config config.local.json
 
 目标文件定义“要完成什么”和“如何验收”，控制器将目标拆分为有依赖关系的步骤，每步先冻结测试，再实现和验证。遇到证据不足、输入变化或预算耗尽时停止；中断后可检查记录并恢复。队列、PR 跟进与预发布检查均需显式配置，不会因升级自动开启。预发布与回滚演练仅运行隔离 Docker 快照，不操作生产服务或真实流量。完整配置、命令及边界见[使用说明](docs/ITERATION.md)。
 
-**1.5.0** 已包含 [Issue → 测试复现 → 修复 PR](docs/ISSUE-REPAIR.md)、[pytest、Go test 与 JUnit XML](docs/MULTILINGUAL-TESTS.md) 和[崩溃恢复](docs/RECOVERY.md)。下载包与 Agent 镜像应使用匹配的 1.5.0 版本。
+**1.6.0** 已包含 [Issue → 测试复现 → 修复 PR](docs/ISSUE-REPAIR.md)、[pytest、Go test 与 JUnit XML](docs/MULTILINGUAL-TESTS.md) 和[崩溃恢复](docs/RECOVERY.md)。下载包与 Agent 镜像应使用匹配的 1.6.0 版本。
 
-**1.5.0** 新增[合并后追踪与可复现 Agent 评测](docs/POST-MERGE-EVALUATION.md)：在 merge commit 上核验配置的检查与 Issue 状态，将回归接入需人工确认的改进提案，并按明确标记的 suite、case、profile 比较不同 Agent 配置。
+**1.6.0** 已包含[合并后追踪与可复现 Agent 评测](docs/POST-MERGE-EVALUATION.md)：在 merge commit 上核验配置的检查与 Issue 状态，将回归接入需人工确认的改进提案，并按明确标记的 suite、case、profile 比较不同 Agent 配置。
 
-**1.5.0** 同时新增[多智能体协作](docs/MULTI-AGENT-COLLABORATION.md)：Planner、Tester、Developer、Reviewer 使用独立 Codex 角色，共享有上限的预算，保留可恢复的角色交接和任务 DAG 状态；最终状态仍由确定性控制器与独立测试执行器决定。
+**1.6.0** 已包含[多智能体协作](docs/MULTI-AGENT-COLLABORATION.md)：Planner、Tester、Developer、Reviewer 使用独立 Codex 角色，共享有上限的预算，保留可恢复的角色交接和任务 DAG 状态；最终状态仍由确定性控制器与独立测试执行器决定。
 
-1.5.0 之后的开发版本新增可选的 DAG 独立节点受控并行、按资源预算调整波次、文件冲突后在新快照上串行重试、失败节点隔离和可审计的波次决策。所有被接纳的改动仍须通过独立的累积验证。
+**1.6.0 新增**可选的 DAG 独立节点受控并行、按资源预算调整波次、文件冲突后在新快照上串行重试、失败节点隔离和可审计的波次决策。所有被接纳的改动仍须通过独立的累积验证。
 
-开发版本还新增[证据驱动的候选队列](docs/CANDIDATE-ITERATION.md)与[固定用例回放和策略准入](docs/POST-MERGE-EVALUATION.md)。CI、规范、审查、基线和合并后信号会连同证据进入队列；只有来自可信来源、通过稳定测试复现，并经人工批准或可信控制器明确配置自动批准的 Issue 才能进入执行目标。固定提交与验收条件的评测套件可比较不同配置的验证率和调用成本，并可阻止未通过门禁的自动迭代。这些开发功能尚未包含在 1.5.0 便携包中。
+**1.6.0 新增**[证据驱动的候选队列](docs/CANDIDATE-ITERATION.md)与[固定用例回放和策略准入](docs/POST-MERGE-EVALUATION.md)。CI、规范、审查、基线和合并后信号会连同证据进入队列；只有来自可信来源、通过稳定测试复现，并经人工批准或可信控制器明确配置自动批准的 Issue 才能进入执行目标。固定提交与验收条件的评测套件可比较不同配置的验证率和调用成本，并可阻止未通过门禁的自动迭代。这些功能已包含在 1.6.0 便携包中。
 
-开发版本的 `iterate` 现在统一经过该候选队列：先复现可信的修复或功能型 Issue，默认等待人工批准；仅在可信控制器配置中明确设置 `iteration.queue.autoApprove=true` 时，才会自动继续执行并提出经验证的草稿 PR。Issue 内容、标签或目标提交变化，以及评测门禁未通过时，都不能直接进入新目标。中断后可恢复同一目标，不会重复领取预算。
+1.6.0 的 `iterate` 现在统一经过该候选队列：先复现可信的修复或功能型 Issue，默认等待人工批准；仅在可信控制器配置中明确设置 `iteration.queue.autoApprove=true` 时，才会自动继续执行并提出经验证的草稿 PR。Issue 内容、标签或目标提交变化，以及评测门禁未通过时，都不能直接进入新目标。中断后可恢复同一目标，不会重复领取预算。
 
-开发版本进一步新增[常驻自动迭代服务](docs/SERVICE.md)：`serve` 接收经过验签的 GitHub Webhook，并通过轮询补齐遗漏事件；持久化队列合并同一对象的更新，执行前读取最新证据。每日调用、Token 和任务预算跨重启保留，连续执行或验证失败时熔断，支持运行中暂停、恢复和按证据摘要批准候选。可选的 GitHub 进度反馈会更新同一条评论，关联本地证据与修复 PR。当前可从源码使用，这些功能尚未包含在 1.5.0 便携包中。
+**1.6.0 新增**[常驻自动迭代服务](docs/SERVICE.md)：`serve` 接收经过验签的 GitHub Webhook，并通过轮询补齐遗漏事件；持久化队列合并同一对象的更新，执行前读取最新证据。每日调用、Token 和任务预算跨重启保留，连续执行或验证失败时熔断，支持运行中暂停、恢复和按证据摘要批准候选。可选的 GitHub 进度反馈会更新同一条评论，关联本地证据与修复 PR。这些功能已包含在便携包中。
 
 - GitHub 轮询和本地提交比较；任务固定 base/head SHA、PR 标题及描述摘要。
 - 从 base 读取规则，支持嵌套 AGENTS.md、静态文本规则、JS/TS AST 调用规则、规则冲突检查、历史问题去重及带有效期的规则豁免。
@@ -121,7 +121,7 @@ npm run dev -- goals maintain GOAL_ID --config config.local.json
 
 ## 启动
 
-直接使用可下载 [1.5.0 便携包](https://github.com/indada/repopilot/releases/tag/v1.5.0)，支持 Linux、Windows、macOS，内置 Node.js，无需 npm 安装。参见[便携版快速入门](docs/QUICKSTART.md)。以下为源码安装方式。
+直接使用可下载 [1.6.0 便携包](https://github.com/indada/repopilot/releases/tag/v1.6.0)，支持 Linux、Windows、macOS，内置 Node.js，无需 npm 安装。参见[便携版快速入门](docs/QUICKSTART.md)。以下为源码安装方式。
 
 需要 Node.js 22、Git，以及用于执行目标测试和 Agent 的 Linux Docker 容器。
 
@@ -181,7 +181,7 @@ maxCalls 限制每次任务执行的模型调用数量。maxTokens 根据每次�
 
 ## 任务管理 CLI
 
-1.5.0 提供 `recover`：先预览，再校验预览令牌清理当前数据目录所属的遗留资源，并保留中断任务证据。参见[崩溃恢复说明](docs/RECOVERY.md)。
+1.6.0 提供 `recover`：先预览，再校验预览令牌清理当前数据目录所属的遗留资源，并保留中断任务证据。参见[崩溃恢复说明](docs/RECOVERY.md)。
 
 ```powershell
 npm run dev -- tasks list --config config.local.json --status running --limit 20 --offset 0

@@ -56,7 +56,7 @@ Evaluation is evidence aggregation, not a model-generated score. It does not cla
 
 ## Replay a pinned suite and gate a strategy
 
-The development line after 1.5.0 supports a suite manifest with an explicit repository, branch and 40-character commit SHA for each case. The case specification contains title, objective, mode, acceptance criteria and allowed paths; it cannot contain a live Issue, branch override or evaluation identity. For example:
+Version 1.6.0 supports a suite manifest with an explicit repository, branch and 40-character commit SHA for each case. The case specification contains title, objective, mode, acceptance criteria and allowed paths; it cannot contain a live Issue, branch override or evaluation identity. For example:
 
 ```json
 {
