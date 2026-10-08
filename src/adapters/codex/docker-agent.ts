@@ -11,6 +11,7 @@ import type { Snapshot } from '../../domain/types.js';
 import { changedPaths } from '../../domain/snapshot.js';
 import { isTest } from '../../domain/repair.js';
 import type { Agent } from '../../ports/agent.js';
+import type { ModelCallBudget } from '../../ports/service.js';
 import { RetryableError, throwIfAborted } from '../../shared/control.js';
 import { execute } from '../../shared/process.js';
 import { ownerLabels, resourceOwner } from '../../shared/resource-owner.js';
@@ -38,12 +39,12 @@ export class DockerCodexAgent implements Agent {
   private budget: SharedAgentBudget;
   constructor(private config: Config['agent'], private dataDir: string,
     private testEnvironment?: ReturnType<typeof describeTestEnvironment>, budget?: SharedAgentBudget,
-    private assignedRole?: AgentRole) {
+    private assignedRole?: AgentRole, private globalBudget?: ModelCallBudget) {
     this.budget = budget ?? new SharedAgentBudget(config.maxCalls, config.maxTokens);
   }
   resetBudget() { this.budget.reset(); }
   usage() { return this.budget.usage(); }
-  forkExecution(): Agent { return new DockerCodexAgent(this.config, this.dataDir, this.testEnvironment, undefined, this.assignedRole); }
+  forkExecution(): Agent { return new DockerCodexAgent(this.config, this.dataDir, this.testEnvironment, undefined, this.assignedRole, this.globalBudget); }
   design(base: Snapshot, context: string, signal?: AbortSignal) { return this.call('roadmap', base, base, context, signal); }
   review(base: Snapshot, head: Snapshot, description: string, signal?: AbortSignal, paths?: string[]) { return this.call('review', base, head, description, signal, paths); }
   plan(base: Snapshot, head: Snapshot, description: string, signal?: AbortSignal, intent?: 'feature' | 'bugfix') { return this.call('plan', base, head, description, signal, undefined, intent); }
@@ -62,6 +63,8 @@ export class DockerCodexAgent implements Agent {
       if (Buffer.byteLength(input) > 500000) throw new Error('Evidence/context exceeds per-call budget.');
       const name = 'repopilot-agent-' + randomUUID(), root = resolve(this.dataDir, 'work', name);
       await mkdir(root, { recursive: true }); await writeFile(resolve(root, 'input.json'), input);
+      const reservation = await this.globalBudget?.reserve();
+      let tokens: number | undefined;
       try {
         this.budget.beginUnaccounted();
         const result = await execute('docker', ['run', '--rm', '--name', name, '--read-only',
@@ -74,6 +77,7 @@ export class DockerCodexAgent implements Agent {
         if (result.code === 125 || result.timedOut) throw new RetryableError('Codex container was unavailable or timed out.');
         if (result.code !== 0) throw new Error('Codex container failed: ' + result.stderr.slice(-2000));
         const envelope = z.object({ answer: answerSchema, tokens: z.number().int().nonnegative() }).parse(JSON.parse(result.stdout));
+        tokens = envelope.tokens;
         this.budget.settle(envelope.tokens);
         for (const change of envelope.answer.changes) {
           if (mode === 'repair' && head.has(change.path) && !batch.diff.some(f => f.path === change.path) && !batch.files.some(f => f.path === change.path)) {
@@ -89,7 +93,10 @@ export class DockerCodexAgent implements Agent {
           combined.steps = envelope.answer.steps;
         }
         combined.summary += envelope.answer.summary + '\n';
-      } finally { await execute('docker', ['rm', '-f', name], { timeoutMs: 10000 }).catch(() => undefined); }
+      } finally {
+        try { await reservation?.settle(tokens); }
+        finally { await execute('docker', ['rm', '-f', name], { timeoutMs: 10000 }).catch(() => undefined); }
+      }
     }
     return combined;
   }

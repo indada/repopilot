@@ -4,6 +4,8 @@ export class StaleTaskError extends Error { constructor() { super('Pull request 
 export class RetryableError extends Error {
   constructor(message: string, readonly retryAfterMs = 0) { super(message); }
 }
+/** Service policy defers execution without spending a candidate's failure allowance. */
+export class AutomationPausedError extends RetryableError {}
 export interface RetryOptions { attempts: number; baseDelayMs: number; maxDelayMs: number; }
 export const pause = (ms: number, signal?: AbortSignal) => delay(ms, undefined, { signal });
 export function throwIfAborted(signal?: AbortSignal): void { signal?.throwIfAborted(); }

@@ -55,7 +55,7 @@ Context batches contain whole changed files and authoritative scoped rules, with
 
 ## Scope
 
-Public text repositories, same-repository PRs, one serial controller, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, webhook server, dashboard or automatic merge. Containers/reporters are not hostile-code attestation. See SECURITY.md.
+Public text repositories, same-repository PRs, one controller with serial task admission and optional bounded DAG parallelism, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, dashboard or automatic merge. The development line adds an optional Webhook receiver alongside polling. Containers/reporters are not hostile-code attestation. See SECURITY.md.
 ## Test environment configuration
 
 `domain/runner-config.ts` validates single-command and multi-command execution contracts. `adapters/testing/environment.ts` owns disposable Docker networks, dependency services, readiness checks and cleanup; `docker-runner.ts` runs commands and aggregates their evidence. The application continues to depend only on the Runner port. Command-scoped case IDs preserve independent evidence across multiple suites, while legacy single-command IDs remain unchanged. See [test environments](TEST-ENVIRONMENTS.md).
@@ -64,3 +64,9 @@ Public text repositories, same-repository PRs, one serial controller, atomic fil
 Version 1.3.0 adds a goal workflow above the existing verification pipeline. `IterationStore` saves goal specifications, dependency plans, pinned inputs, cumulative changes, per-criterion attempt counters and model/time reservations under `goals/`. Each step retains its own ordinary evidence report. Recovery consumes a saved verified step before requesting more model work; final publication requires original and all completed-step evidence to remain passing.
 
 The optional Issue queue and PR maintenance loop share the controller lock and goal budgets. PR updates preserve branch ownership, compare current feedback and commits, and use non-force commits. Interrupted updates are reconciled against the complete saved Git tree. Historical experiences are scoped to repository, commit and configuration; they never grant permissions or replace runner evidence. See [iteration configuration and CLI](ITERATION.md).
+
+## Persistent service extension
+
+`domain/service.ts` defines service policy and durable record contracts. `adapters/github/webhook-server.ts` validates signatures and appends sanitized wake-up hints through `ServiceStore`; no execution runs in the receiver. `application/service.ts` coalesces deliveries, refreshes API evidence, dispatches candidate/owned-PR/ordinary-PR work and reconciles polling. Atomic event files permit ingress while the controller owns the execution lock. Receipts retain retry and interruption state; new deliveries during an active batch are acknowledged separately.
+
+`ServiceBudget` serializes durable call/token reservations shared by every concrete Codex role and execution fork. A missing usage acknowledgement keeps the reserved charge after a crash. Service policy pauses propagate through pipeline/goal recovery without granting another goal budget. Operator requests and approval hints remain writable while the service runs. The progress outbox tracks desired/delivered comment digests; GitHub author-and-marker checks reconcile ambiguous creation results. See [service configuration and operation](SERVICE.md).

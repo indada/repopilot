@@ -1,8 +1,13 @@
 # Verification
 
-This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 136 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
+This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 203 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
 
 Coverage includes:
+
+- Signed Webhook ingress over synthetic localhost HTTP, durable delivery acknowledgement, atomic deduplication, queue capacity, coalescing and interrupted-receipt recovery.
+- UTC daily service reservations across parallel roles and execution forks, midnight settlement, unknown/over-limit usage, operator pause/resume and independent failure circuits.
+- Live-input revalidation for queued approval, polling compensation, events arriving during execution, completed-publication recovery and neutral handling of cached findings or stale approval.
+- Author-and-marker progress-comment reconciliation after ambiguous writes, bounded outbox retries and feedback isolation.
 
 - Goal acceptance coverage and dependency plans, bounded feature implementation, completed-step checkpoints, cross-round duplicate patches, replanning limits keyed by acceptance ID, persistent pause and publication recovery.
 - Goal model/time accounting, unknown usage reservations, known over-budget consumption, same-commit experience isolation and candidate/baseline preview health gates.

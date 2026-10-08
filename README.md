@@ -91,6 +91,8 @@ It also adds an [evidence-driven candidate queue](docs/CANDIDATE-ITERATION.md) a
 
 The development-line `iterate` command now runs Issue intake through this same queue. It reproduces eligible bugfix or feature Issues first, waits for approval by default, and resumes one linked goal after a crash. An explicit `iteration.queue.autoApprove=true` permits stable candidates to continue automatically to a verified draft-PR proposal; changed Issue evidence, revoked labels, exhausted budgets and failed strategy gates prevent new admission.
 
+The development line also adds a [persistent iteration service](docs/SERVICE.md): `serve` combines signed Webhooks with polling compensation, a durable coalescing event queue, UTC daily model/task allowances, failure-circuit controls and opt-in GitHub progress comments. Operators can pause, resume or approve exact candidate evidence while the controller runs. These features are available from current source; the portable 1.5.0 release does not include them.
+
 - Pinned base/head SHAs and title/body digest; continuous freshness checks and cancellation.
 - Scoped literal rules and JavaScript/TypeScript AST call rules, conflict detection and expiring exceptions.
 - Nested AGENTS.md semantic review with verbatim rule/code citations and historical finding comparison.
@@ -200,7 +202,7 @@ Task timeout, maxCalls, maxAttempts and maxTaskExecutions are bounded. maxTokens
 
 Public text-only repositories, up to 10,000 files / 16 MiB. Symlinks, submodules, binaries and case collisions fail closed. Context is batched around changed files plus related imports/tests; oversized individual files fail explicitly. One controller runs serially. After a crash, use the recovery preview and validated apply flow; legacy locks and resources require manual inspection.
 
-No dashboard, webhook server, distributed queue, browser E2E, automatic dependency installation or fork execution. Test execution is evidence, not tamper-proof attestation against malicious code. See SECURITY.md.
+No dashboard, distributed queue, browser E2E, automatic dependency installation or fork execution. The development line supports an optional local Webhook receiver; see [service operation](docs/SERVICE.md). Test execution is evidence, not tamper-proof attestation against malicious code. See SECURITY.md.
 
 ## Development
 

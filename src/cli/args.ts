@@ -25,6 +25,11 @@ export const help = `RepoPilot ${VERSION} — local-first repository verificatio
   repopilot goals graph GOAL_ID --config config.local.json
   repopilot goals list|show|pause [GOAL_ID] --config config.local.json
   repopilot iterate --config config.local.json [--once]
+  repopilot serve --config config.local.json [--once]
+  repopilot service status|pause|resume --config config.local.json
+  repopilot service approve CANDIDATE_ID --expected EVIDENCE_DIGEST --config config.local.json
+  repopilot events list --config config.local.json [--status dead]
+  repopilot events retry EVENT_ID --config config.local.json
   repopilot discover --config config.local.json [--apply --expected PREVIEW_TOKEN]
   repopilot experiences --config config.local.json
   repopilot evals --config config.local.json [--suite SUITE]

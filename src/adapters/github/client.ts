@@ -16,9 +16,12 @@ export class GitHub implements GitHubPort {
     if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Invalid repository.');
   }
   async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+    return this.api<T>(`repos/${this.repository}${path ? '/' + path : ''}`, method, body);
+  }
+  private async api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     const operation = async () => {
       const timeout = AbortSignal.timeout(30000);
-      const response = await (this.options.transport ?? fetch)(`https://api.github.com/repos/${this.repository}${path ? '/' + path : ''}`, {
+      const response = await (this.options.transport ?? fetch)(`https://api.github.com/${path}`, {
         method, signal: this.options.signal ? AbortSignal.any([this.options.signal, timeout]) : timeout, redirect: 'error',
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'RepoPilot/0.1',
           ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -61,6 +64,21 @@ export class GitHub implements GitHubPort {
     throw new Error('GitHub collection exceeded 1,000 entries; refusing partial evidence.');
   }
   issues(state: 'open' | 'all'): Promise<QueueIssue[]> { return this.pages(`issues?state=${state}&sort=created&direction=asc`); }
+  async syncProgress(number: number, marker: string, body: string): Promise<number> {
+    if (!Number.isSafeInteger(number) || number < 1 || !/^<!-- repopilot-progress:[a-f0-9]{24} -->$/.test(marker)
+      || !body.startsWith(marker + '\n') || body.length > 10000) throw new Error('Invalid progress message.');
+    const actor = await this.api<{ login: string }>('user');
+    if (!actor.login) throw new Error('Progress feedback requires a GitHub user token.');
+    const comments = await this.pages<{ id: number; body: string; user: { login: string } }>(`issues/${number}/comments`);
+    const owned = comments.filter(item => item.user.login === actor.login && item.body.startsWith(marker + '\n'))
+      .sort((a, b) => a.id - b.id)[0];
+    // A timed-out creation is recovered by reading the author's marker on the next attempt.
+    if (owned) {
+      if (owned.body !== body) await this.request(`issues/comments/${owned.id}`, 'PATCH', { body });
+      return owned.id;
+    }
+    return (await this.request<{ id: number }>(`issues/${number}/comments`, 'POST', { body })).id;
+  }
   private async checks(sha: string): Promise<PullFeedback['checks']> {
     const checks: PullFeedback['checks'] = [];
     for (let page = 1; ; page++) {
@@ -85,7 +103,7 @@ export class GitHub implements GitHubPort {
     const headCommit = await this.request<{ message: string }>(`git/commits/${pr.head.sha}`);
     const headRun = headCommit.message.match(/^RepoPilot-Run: ([a-f0-9]{24})$/m)?.[1];
     return { pr, headRun, checks, comments: [
-      ...comments.map(c => ({ id: 'comment-' + c.id, author: c.user.login, body: c.body })),
+      ...comments.filter(c => !c.body.startsWith('<!-- repopilot-progress:')).map(c => ({ id: 'comment-' + c.id, author: c.user.login, body: c.body })),
       ...reviews.filter(r => r.state !== 'DISMISSED' && r.state !== 'PENDING').map(c => ({ id: 'review-' + c.id, author: c.user.login, body: c.body, commit: c.commit_id })),
       ...inline.map(c => ({ id: 'inline-' + c.id, author: c.user.login, body: c.body, commit: c.commit_id }))
     ] };

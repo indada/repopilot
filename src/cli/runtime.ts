@@ -7,5 +7,6 @@ import type { Store } from '../ports/store.js';
 export interface Runtime {
   config: Config; store: Store; agent?: Agent; runner?: Runner; github: GitHub; repository: Repository;
   signal: AbortSignal;
+  onTaskStart?: () => Promise<void>;
 }
 export interface Output { write(value: string): void; error(value: string): void; }

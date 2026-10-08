@@ -1,0 +1,30 @@
+{
+  "repository": "OWNER/REPOSITORY",
+  "dataDir": ".repopilot-data",
+  "pollSeconds": 60,
+  "runner": {
+    "image": "node:22-bookworm-slim",
+    "command": ["node", "--test"],
+    "reporter": "node"
+  },
+  "agent": {
+    "enabled": false,
+    "repair": false,
+    "image": "repopilot-agent:local"
+  },
+  "iteration": {
+    "queue": {
+      "labels": ["repopilot-ready"],
+      "trustedAuthors": ["YOUR_GITHUB_LOGIN"],
+      "allowedPaths": ["src", "tests"],
+      "autoApprove": false
+    }
+  },
+  "service": {
+    "reviewPullRequests": false,
+    "progress": false,
+    "queue": { "maxBatch": 20, "maxPending": 1000, "maxAttempts": 3, "retentionDays": 14 },
+    "limits": { "dailyCalls": 200, "dailyTokens": 2000000, "dailyTasks": 20, "failureThreshold": 3 }
+  },
+  "publish": false
+}

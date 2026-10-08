@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Config } from '../domain/config.js';
-import { pipelineId, taskId } from '../domain/identity.js';
+import { configDigest, pipelineId, taskId } from '../domain/identity.js';
 import type { RunInput } from '../domain/task.js';
 import { goalSpecSchema, issueDigest, patchDigest, validateSteps, withinScope, type GoalState, type WaveAudit } from '../domain/iteration.js';
 import { handoffDigest, type AgentHandoff } from '../domain/collaboration.js';
@@ -18,13 +18,14 @@ import type { IterationStore } from '../ports/iteration.js';
 import type { Repository } from '../ports/repository.js';
 import type { Runner } from '../ports/runner.js';
 import type { Store } from '../ports/store.js';
-import { pause, StaleTaskError, withFreshness } from '../shared/control.js';
+import { AutomationPausedError, pause, StaleTaskError, withFreshness } from '../shared/control.js';
 import { runPipeline } from './pipeline.js';
 import { finishReport } from './publication.js';
 
 export interface IterationDependencies {
   config: Config; goals: IterationStore; store: Store; github: GitHub & IssueGitHub;
   repository: Repository; agent?: Agent; runner?: Runner; previewRunner?: Runner; signal: AbortSignal;
+  onTaskStart?: () => Promise<void>;
 }
 function enabled(d: IterationDependencies) {
   if (!d.config.iteration || !d.agent?.design || !d.runner || !d.config.agent.enabled || !d.config.agent.repair) throw new Error('Goals require iteration configuration, agent.enabled, agent.repair and a runner.');
@@ -159,6 +160,11 @@ async function parallelWave(state: GoalState, base: Snapshot, working: Snapshot,
       if (!state.reports.includes(reference)) state.reports.push(reference);
     }
     await save(state, d);
+  }
+  const deferred = results.find(result => result.status === 'rejected' && result.reason instanceof AutomationPausedError);
+  if (deferred?.status === 'rejected') {
+    audit.status = 'interrupted'; audit.reason = deferred.reason.message; audit.updatedAt = new Date().toISOString();
+    await save(state, d); throw deferred.reason;
   }
   signal.throwIfAborted();
   if (reports.some(report => !report))
@@ -343,7 +349,7 @@ export async function createGoal(raw: unknown, d: IterationDependencies,
     }
   }
   const state: GoalState = { schemaVersion: 1, id: taskId([d.config.repository, target.sha, spec, randomUUID()]),
-    repository: d.config.repository, spec, configHash: taskId(d.config), branch: target.branch, sha: target.sha,
+    repository: d.config.repository, spec, configHash: configDigest(d.config), branch: target.branch, sha: target.sha,
     issueDigest: digest, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'planned',
     steps: [], completed: [], changes: [], reports: [], rounds: 0, calls: 0, tokens: 0, elapsedMs: 0, notes: [],
     candidateId: metadata.candidateId, evaluationRunId: metadata.evaluationRunId };
@@ -351,20 +357,26 @@ export async function createGoal(raw: unknown, d: IterationDependencies,
   const start = Date.now();
   state.activeSince = new Date(start).toISOString(); await save(state, d);
   const control = goalControl(state.id, d, limits.timeoutSeconds * 1000), signal = control.signal;
+  let policyPause: AutomationPausedError | undefined;
   try {
     await design(state, await snapshot(state, { ...d, signal }), d, signal);
     signal.throwIfAborted();
     if (await d.goals.paused(state.id)) state.status = 'paused';
     else if (!await fresh(state, d)) state.status = 'stale';
   }
-  catch (error) { state.status = signal.aborted ? 'paused' : 'needs_attention'; state.notes.push(String(error)); }
+  catch (error) {
+    policyPause = error instanceof AutomationPausedError ? error : undefined;
+    state.status = signal.aborted || policyPause ? 'paused' : 'needs_attention'; state.notes.push(String(error));
+  }
   finally { control.stop(); }
-  state.activeSince = undefined; state.elapsedMs += Date.now() - start; await save(state, d); return state;
+  state.activeSince = undefined; state.elapsedMs += Date.now() - start; await save(state, d);
+  if (policyPause) throw policyPause;
+  return state;
 }
 export async function loadGoal(id: string, d: IterationDependencies) {
   const state = await d.goals.read(id);
   if (!state || state.repository !== d.config.repository) throw new Error('Goal not found in this repository.');
-  if (state.configHash !== taskId(d.config)) throw new Error('Goal configuration changed; create a new goal to preserve prior evidence.');
+  if (state.configHash !== configDigest(d.config)) throw new Error('Goal configuration changed; create a new goal to preserve prior evidence.');
   return state;
 }
 export async function runGoal(id: string, d: IterationDependencies, replan = false): Promise<GoalState> {
@@ -384,6 +396,7 @@ export async function runGoal(id: string, d: IterationDependencies, replan = fal
   // Downtime after an unclean exit counts toward the deadline on resume.
   state.activeSince = new Date(start).toISOString(); await save(state, d);
   const control = goalControl(id, d, remaining), signal = control.signal;
+  let policyPause: AutomationPausedError | undefined;
   try {
     if (!await fresh(state, d)) { state.status = 'stale'; return state; }
     await withFreshness(async controlled => {
@@ -514,11 +527,13 @@ export async function runGoal(id: string, d: IterationDependencies, replan = fal
       state.status = report.status === 'published' ? 'published' : report.status === 'stale' ? 'stale' : 'verified';
     }, () => fresh(state, d), d.config.freshnessSeconds * 1000, signal);
   } catch (error) {
-    state.status = error instanceof StaleTaskError ? 'stale' : signal.aborted || await d.goals.paused(id) ? 'paused' : 'needs_attention'; state.notes.push(String(error));
+    policyPause = error instanceof AutomationPausedError ? error : undefined;
+    state.status = error instanceof StaleTaskError ? 'stale' : policyPause || signal.aborted || await d.goals.paused(id) ? 'paused' : 'needs_attention'; state.notes.push(String(error));
   } finally {
     control.stop(); state.elapsedMs += Date.now() - start; state.activeSince = undefined; await save(state, d);
     await d.goals.remember({ id: state.id, goalId: state.id, repository: state.repository, sha: state.sha, configHash: state.configHash,
       outcome: state.status, completed: state.completed, reportIds: state.reports, notes: state.notes.slice(-10), createdAt: state.updatedAt });
   }
+  if (policyPause) throw policyPause;
   return state;
 }

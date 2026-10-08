@@ -1,18 +1,20 @@
 import { resolve } from 'node:path';
 import { candidateFromSignal, orderCandidates, type Candidate, type CandidateSignal } from '../domain/candidate.js';
-import { pipelineId, taskId } from '../domain/identity.js';
+import { configDigest, pipelineId, taskId } from '../domain/identity.js';
 import { issueDigest, type IterationConfig } from '../domain/iteration.js';
 import { applyExceptions, introducedFindings, loadPolicy } from '../domain/policy.js';
 import { diagnose } from '../domain/test-diagnosis.js';
 import { passed, sameFailures } from '../domain/test-evidence.js';
 import type { QueueIssue } from '../ports/automation.js';
 import type { CandidateStore } from '../ports/candidate.js';
-import { withFreshness } from '../shared/control.js';
+import { AutomationPausedError, RetryableError, withFreshness } from '../shared/control.js';
 import { createGoal, runGoal } from './iteration.js';
 import { runPipeline } from './pipeline.js';
 import type { AutomationDependencies } from './automation.js';
 
-export type CandidateDependencies = AutomationDependencies & { candidates: CandidateStore };
+export type CandidateDependencies = AutomationDependencies & { candidates: CandidateStore;
+  onReproduction?: (candidate: Candidate) => Promise<void>;
+  onAdvance?: (candidate: Candidate) => Promise<void> };
 const sha = /^[a-f0-9]{40}$/;
 const now = () => new Date().toISOString();
 
@@ -40,7 +42,7 @@ async function collectIssueSignals(d: AutomationDependencies): Promise<Candidate
   const target = await d.github.target();
   return (await d.github.issues('open')).filter(issue => trustedIssue(issue, queue))
     .map(issue => issueSignal(d.config.repository, issue, target.branch, target.sha,
-      queue.priorityLabels, taskId(d.config)));
+      queue.priorityLabels, configDigest(d.config)));
 }
 
 /** Discovery is evidence-only. A source cannot grant its own execution permission. */
@@ -155,10 +157,11 @@ export async function reproduceCandidate(id: string, d: CandidateDependencies): 
     const target = await d.github.target(candidate.branch);
     const matches = (source: QueueIssue, branch: string, commit: string) => trustedIssue(source, queue)
       && candidateFromSignal(issueSignal(d.config.repository, source, branch, commit,
-        queue.priorityLabels, taskId(d.config))).evidenceDigest === candidate.evidenceDigest;
+        queue.priorityLabels, configDigest(d.config))).evidenceDigest === candidate.evidenceDigest;
     if (!matches(issue, target.branch, target.sha))
       throw new Error('Issue or target branch changed before reproduction.');
     const source = { number: candidate.issue!, title: issue.title, body: issue.body ?? '', branch: target.branch };
+    await d.onReproduction?.(candidate);
     const report = await withFreshness(async signal => {
       const snapshot = await pinnedSnapshot(d, candidate.commit, signal);
       return runPipeline({ base: snapshot, head: snapshot, baseSha: candidate.commit, headSha: candidate.commit,
@@ -177,6 +180,8 @@ export async function reproduceCandidate(id: string, d: CandidateDependencies): 
       candidate.status = 'stale'; candidate.reason = 'Issue authorization or target changed during reproduction.';
       candidate.updatedAt = now(); await d.candidates.save(candidate); return candidate;
     }
+    if (report.status === 'error' && report.retryable)
+      throw new RetryableError('Issue reproduction needs an infrastructure retry.', Math.max(0, Date.parse(report.retryAfter ?? '') - Date.now()));
     const reproduced = report.reproduction?.reproduced === true && passed(report.tests.base)
       && report.testStability?.status === 'stable';
     candidate.reproduction = { status: reproduced ? 'reproduced' : 'not_reproduced', reportId: report.id,
@@ -234,7 +239,7 @@ export async function runCandidate(id: string, d: CandidateDependencies): Promis
   const issue = await d.github.issue(candidate.issue) as QueueIssue, target = await d.github.target(candidate.branch);
   const trusted = trustedIssue(issue, queue);
   const current = trusted ? issueSignal(d.config.repository, issue, target.branch, target.sha,
-    queue.priorityLabels, taskId(d.config)) : undefined;
+    queue.priorityLabels, configDigest(d.config)) : undefined;
   if (!current || candidateFromSignal(current).evidenceDigest !== candidate.evidenceDigest) {
     candidate.status = 'stale'; candidate.reason = 'Issue authorization or pinned inputs changed.';
     candidate.updatedAt = now(); await d.candidates.save(candidate); return candidate;
@@ -273,11 +278,11 @@ export async function runCandidate(id: string, d: CandidateDependencies): Promis
 }
 
 /** The polling loop has one controller lock, so only one candidate can advance at a time. */
-export async function processIssueCandidates(d: CandidateDependencies, admitNew = true) {
+export async function processIssueCandidates(d: CandidateDependencies, admitNew = true, issueNumbers?: readonly number[]) {
   const queue = d.config.iteration?.queue;
   if (!queue) throw new Error('Configure iteration.queue before processing Issue candidates.');
   const refreshed = await refreshCandidates(d, 'issues'), active = new Set(refreshed.activeIds);
-  const candidates = refreshed.candidates.filter(item => active.has(item.id));
+  const candidates = refreshed.candidates.filter(item => active.has(item.id) && (!issueNumbers || issueNumbers.includes(item.issue!)));
   const recover = candidates.filter(item => ['running', 'approved'].includes(item.status));
   const incoming = admitNew ? candidates.filter(item =>
     ['observed', 'stale'].includes(item.status)
@@ -294,6 +299,7 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
     if (linked && await d.goals.paused(linked.id)) continue;
     try {
       let candidate = initial;
+      let admitted = false;
       if (candidate.status === 'observed' || candidate.status === 'stale') {
         const claimed = goals.find(goal => goal.repository === d.config.repository && goal.spec.issue === candidate.issue);
         if (claimed) {
@@ -304,10 +310,16 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
           || candidate.detail.length < 8 || candidate.detail.length > 2000) {
           candidate.status = 'blocked'; candidate.reason = 'Issue request exceeds the bounded automatic intake limits.';
           candidate.updatedAt = now(); await d.candidates.save(candidate);
-        } else candidate = await reproduceCandidate(candidate.id, d);
+        } else {
+          await d.onAdvance?.(candidate); admitted = true;
+          candidate = await reproduceCandidate(candidate.id, d);
+        }
       }
       if (candidate.status === 'reproduced' && queue.autoApprove) candidate = await approveCandidate(candidate.id, candidate.evidenceDigest, d);
-      if (candidate.status === 'approved' || candidate.status === 'running') candidate = await runCandidate(candidate.id, d);
+      if (candidate.status === 'approved' || candidate.status === 'running') {
+        if (!admitted) await d.onAdvance?.(candidate);
+        candidate = await runCandidate(candidate.id, d);
+      }
       if (candidate.failureCount || candidate.retryAfter) {
         candidate.failureCount = undefined; candidate.retryAfter = undefined;
         await d.candidates.save(candidate);
@@ -315,6 +327,7 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
       processed.push({ id: candidate.id, status: candidate.status, goalId: candidate.goalId, reason: candidate.reason });
     } catch (error) {
       d.signal.throwIfAborted();
+      if (error instanceof AutomationPausedError) throw error;
       const candidate = await d.candidates.read(initial.id);
       if (!candidate) throw error;
       const count = (candidate.failureCount ?? 0) + 1;

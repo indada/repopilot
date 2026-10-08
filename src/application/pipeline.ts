@@ -15,11 +15,15 @@ import type { Report, Snapshot, TestResult } from '../domain/types.js';
 import { roleAgent, type Agent } from '../ports/agent.js';
 import { type Runner } from '../ports/runner.js';
 import { type Store } from '../ports/store.js';
-import { pause, RetryableError, StaleTaskError, throwIfAborted } from '../shared/control.js';
+import { AutomationPausedError, pause, RetryableError, StaleTaskError, throwIfAborted } from '../shared/control.js';
 import { TaskCancelledError, withTaskCancellation } from './task-control.js';
 
 export async function runPipeline(input: RunInput, config: Config, store: Store, runner?: Runner, agent?: Agent, parent?: AbortSignal): Promise<Report> {
-  return withTaskCancellation(store, pipelineId(input, config), signal => executePipeline(input, config, store, runner, agent, signal), parent);
+  return withTaskCancellation(store, pipelineId(input, config), async signal => {
+    const report = await executePipeline(input, config, store, runner, agent, signal);
+    if (report.servicePause && report.retryable) throw new AutomationPausedError(report.servicePause);
+    return report;
+  }, parent);
 }
 async function executePipeline(input: RunInput, config: Config, store: Store, runner?: Runner, agent?: Agent, parent?: AbortSignal): Promise<Report> {
   const description = input.pr ? `${input.pr.title}\n${input.pr.body ?? ''}` : input.description ?? '';
@@ -34,7 +38,8 @@ async function executePipeline(input: RunInput, config: Config, store: Store, ru
     if (previous.status !== 'published') { previous.status = 'cancelled'; await store.save(previous); }
     return previous;
   }
-  if (previous && ['running', 'cancelled'].includes(previous.status) && previous.executions >= config.retry.maxTaskExecutions) {
+  if (previous && (['running', 'cancelled'].includes(previous.status) || previous.servicePause)
+    && previous.executions >= config.retry.maxTaskExecutions) {
     previous.status = 'error'; previous.retryable = false;
     previous.notes.push('Task execution limit reached after interruption.'); await store.save(previous); return previous;
   }
@@ -238,6 +243,7 @@ async function executePipeline(input: RunInput, config: Config, store: Store, ru
     if (error instanceof RetryableError) report.retryAfter = new Date(Date.now() + Math.max(error.retryAfterMs,
       Math.min(config.retry.maxDelayMs, config.retry.baseDelayMs * 2 ** (report.executions - 1)))).toISOString();
     report.notes.push(String(error));
+    if (error instanceof AutomationPausedError) { report.servicePause = error.message; await save(); throw error; }
   } finally { clearTimeout(timer); }
   await save(); return report;
 }

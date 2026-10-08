@@ -3,12 +3,12 @@
 | Directory | Responsibility |
 | --- | --- |
 | cli/ | Argument parsing, command handlers, output, configuration loading and dependency assembly |
-| application/ | Verification, goal planning/iteration, role handoffs, Issue queue, PR maintenance, proposals, replay/cancellation and publication |
+| application/ | Verification, goal planning/iteration, role handoffs, persistent service dispatch/budgets/progress, Issue queue, PR maintenance, proposals, replay/cancellation and publication |
 | domain/ | Types, collaboration/goal schemas, identities, snapshot operations, policies, patch validation and test assessment |
-| ports/ | Agent, Runner, task/goal stores, Repository, GitHub and automation contracts |
+| ports/ | Agent, Runner, task/goal/service stores, model call reservations, Repository, GitHub and automation contracts |
 | adapters/codex/ | Codex container execution, SDK entry point and context preparation |
 | adapters/testing/ | Docker execution and recovery; Node/Vitest, pytest/JUnit XML and Go JSON evidence |
-| adapters/github/ | GitHub HTTP and Git-data publication |
+| adapters/github/ | GitHub HTTP, signed Webhook ingress, progress comments and Git-data publication |
 | adapters/storage/ | Git operations, snapshot export and filesystem task persistence |
 | reporting/ | Human-readable Markdown reports |
 | shared/ | Process execution, cancellation and bounded retry primitives |

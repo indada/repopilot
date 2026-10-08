@@ -22,3 +22,5 @@ CI, policy, baseline and post-merge candidates can be reproduced as evidence, bu
 Candidate records live under `dataDir/candidates` and are written atomically under the controller lock. `list` and `show` are available while another run holds the lock. Refresh marks removed or changed evidence stale and clears prior approval; a stale candidate must be revalidated before approval unless its Issue already has a goal. Identical pinned evidence can reuse its saved reproduction report. Priority affects processing order, never authorization. No candidate automatically merges or deploys code.
 
 For fixed-case strategy comparison, see [post-merge tracking and evaluation](POST-MERGE-EVALUATION.md).
+
+For a long-running controller, use the [persistent iteration service](SERVICE.md). `serve` feeds the same state machine from durable event hints and polling, with daily allowance/circuit controls. `service approve --expected` records an approval request without acquiring the active controller lock; the worker rechecks current evidence before acting.

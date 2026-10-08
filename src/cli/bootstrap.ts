@@ -4,12 +4,16 @@ import { GitHub } from '../adapters/github/client.js';
 import { Store } from '../adapters/storage/file-store.js';
 import { FileIterationStore } from '../adapters/storage/iteration-store.js';
 import { FileCandidateStore } from '../adapters/storage/candidate-store.js';
+import { FileServiceStore } from '../adapters/storage/service-store.js';
+import { startWebhookServer } from '../adapters/github/webhook-server.js';
 import { gitRepository } from '../adapters/storage/repository.js';
 import { DockerRunner } from '../adapters/testing/docker-runner.js';
 import { DockerRecoveryResources } from '../adapters/testing/recovery-resources.js';
 import { ControllerLock } from '../adapters/storage/controller-lock.js';
 import { applyRecovery, recoveryPreview } from '../application/recovery.js';
 import { fixIssue } from '../application/issue.js';
+import { runService, validateService } from '../application/service.js';
+import { ServiceBudget } from '../application/service-budget.js';
 import { describeTestEnvironment } from '../domain/runner-config.js';
 import { VERSION } from '../shared/version.js';
 import { help, parseCli } from './args.js';
@@ -19,6 +23,7 @@ import { watchCommand } from './commands/watch.js';
 import { doctor, initialize } from './commands/setup.js';
 import { executeGoals, inspectGoals, validateGoalCommand } from './commands/goals.js';
 import { executeCandidates, inspectCandidates, validateCandidateCommand } from './commands/candidates.js';
+import { inspectService } from './commands/service.js';
 import { loadConfig } from './config.js';
 import { reportExitCode, reportSummary } from './output.js';
 import type { Output, Runtime } from './runtime.js';
@@ -30,7 +35,7 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   if (values.help || !command) { output.write(help); return 0; }
   if (command === 'init') return initialize(values, output);
   if (command === 'doctor') return doctor(values, output);
-  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
+  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates', 'serve', 'service', 'events'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
   const config = await loadConfig(values.config), store = new Store(config.dataDir);
   if (command === 'recover') {
     const lock = new ControllerLock(config.dataDir), resources = new DockerRecoveryResources(config.dataDir);
@@ -45,6 +50,9 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   validateGoalCommand(command, action, task, values);
   if (command === 'candidates') validateCandidateCommand(action, task, values);
   const goals = new FileIterationStore(config.dataDir), candidates = new FileCandidateStore(config.dataDir);
+  const services = new FileServiceStore(config.dataDir);
+  if (await inspectService(command, action, task, values, config, services, candidates, output)) return 0;
+  if (command === 'serve') validateService(config);
   const inspection = await inspectGoals(command, action, task, values, config, goals, output);
   if (inspection) return inspection === 'ineligible' ? 1 : 0;
   if (command === 'candidates' && await inspectCandidates(action, task, values, config, candidates, output)) return 0;
@@ -53,19 +61,36 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   const abort = new AbortController(), stop = () => abort.abort();
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
+    const budget = config.service ? new ServiceBudget(services, config.repository, config.service,
+      config.agent.enabled ? config.agent.maxTokens : 0) : undefined;
     const github = new GitHub(config.repository, undefined, { signal: abort.signal, retry: config.retry });
     const runtime: Runtime = { config, store, repository: gitRepository, signal: abort.signal,
+      onTaskStart: budget ? () => budget.startTask() : undefined,
       runner: config.runner ? new DockerRunner(config.runner, config.dataDir) : undefined,
       agent: config.agent.enabled ? (config.iteration?.collaboration
         ? new CodexAgentTeam(config.agent, config.iteration.collaboration, config.dataDir,
-          config.runner ? describeTestEnvironment(config.runner) : undefined)
+          config.runner ? describeTestEnvironment(config.runner) : undefined, budget)
         : new DockerCodexAgent(config.agent, config.dataDir,
-          config.runner ? describeTestEnvironment(config.runner) : undefined)) : undefined,
+          config.runner ? describeTestEnvironment(config.runner) : undefined, undefined, undefined, budget)) : undefined,
       github };
     const automation = {
       ...runtime, goals, github, candidates,
+      onAdvance: budget ? () => budget.startTask() : undefined,
       previewRunner: config.iteration?.preview ? new DockerRunner(config.iteration.preview, config.dataDir) : undefined
     };
+    if (command === 'serve') {
+      const webhook = config.service?.webhook && !values.once ? await startWebhookServer(config.repository,
+        config.service.webhook, process.env[config.service.webhook.secretEnv] ?? '', event => services.enqueue(event, config.service!.queue.maxPending)) : undefined;
+      if (webhook) output.write(JSON.stringify({ webhook: webhook.address }));
+      try { return await runService({ ...automation, services, budget: budget! }, !!values.once,
+        value => output.write(JSON.stringify(value)), value => output.error(value)); }
+      finally { await webhook?.close(); }
+    }
+    if (budget && (command === 'check' || command === 'fix'
+      || command === 'goals' && ['plan', 'run', 'replan'].includes(action ?? '')
+      || command === 'candidates' && ['reproduce', 'run'].includes(action ?? '')
+      || command === 'tasks' && ['resume', 'rerun'].includes(action ?? '') || command === 'evals' && action === 'replay'))
+      await budget.startTask();
     if (command === 'candidates') return executeCandidates(action!, task, values, { ...automation, candidates }, output);
     if (['goals', 'iterate', 'discover', 'evals'].includes(command)) return executeGoals(command, action, task, values, automation, output);
     if (command === 'watch') { await watchCommand(values, runtime, output); return 0; }

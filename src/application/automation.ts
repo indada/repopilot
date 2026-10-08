@@ -99,6 +99,7 @@ export async function maintainGoal(id: string, d: AutomationDependencies) {
   const limits = d.config.iteration!;
   if (state.rounds >= limits.maxRounds * Math.max(1, state.steps.length) || state.calls + d.config.agent.maxCalls > limits.maxCalls
     || state.tokens + d.config.agent.maxTokens > limits.maxTokens || state.elapsedMs >= limits.timeoutSeconds * 1000) throw new Error('Goal maintenance budget exhausted.');
+  await d.onTaskStart?.();
   const start = Date.now(), signal = AbortSignal.any([d.signal, AbortSignal.timeout(limits.timeoutSeconds * 1000 - state.elapsedMs)]);
   state.rounds++; state.calls += d.config.agent.maxCalls; state.tokens += d.config.agent.maxTokens;
   const runKey = taskId(['follow-up', id, digest, state.rounds]);

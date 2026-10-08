@@ -50,6 +50,7 @@ export interface Report {
   testAssessment?: { eligible: boolean; reasons: string[]; cases: { id: string; outcome: 'regression' | 'new_behavior_verified' | 'preserved' | 'unresolved'; reason: string }[] };
   changes: RepairChange[]; attempts: number; notes: string[]; createdAt: string;
   executions: number; retryAfter?: string; retryable: boolean;
+  servicePause?: string;
   agentUsage?: { calls: number; tokens: number; complete?: boolean };
   pullRequestUrl?: string;
   publication?: { attempts: number; retryAfter?: string; error?: string; retryable: boolean };

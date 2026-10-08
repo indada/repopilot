@@ -1,4 +1,4 @@
-import { taskId } from '../domain/identity.js';
+import { configDigest, taskId } from '../domain/identity.js';
 import { evaluationSuiteSchema } from '../domain/evaluation.js';
 import type { GoalState } from '../domain/iteration.js';
 import type { IterationDependencies } from './iteration.js';
@@ -10,7 +10,7 @@ export async function replayEvaluationSuite(raw: unknown, profile: string, d: It
   if (suite.repository !== d.config.repository) throw new Error('Evaluation suite targets a different repository.');
   if (!/^[a-z][a-z0-9-]{0,39}$/.test(profile)) throw new Error('Invalid evaluation profile.');
   const deps = { ...d, config: { ...d.config, publish: false } };
-  const configHash = taskId(deps.config), entries: { case: string; goalId: string; status: GoalState['status'] }[] = [];
+  const configHash = configDigest(deps.config), entries: { case: string; goalId: string; status: GoalState['status'] }[] = [];
   for (const item of suite.cases) {
     d.signal.throwIfAborted();
     const spec = { ...item.spec, branch: item.branch, evaluation: { suite: suite.suite, case: item.id, profile } };

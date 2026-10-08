@@ -7,7 +7,7 @@ import { replayEvaluationSuite } from '../../application/evaluation-replay.js';
 import { createGoal, runGoal } from '../../application/iteration.js';
 import type { Config } from '../../domain/config.js';
 import { strategyGateSchema, type GoalState } from '../../domain/iteration.js';
-import { taskId } from '../../domain/identity.js';
+import { configDigest } from '../../domain/identity.js';
 import type { IterationStore } from '../../ports/iteration.js';
 import type { CandidateStore } from '../../ports/candidate.js';
 import type { CliValues } from '../args.js';
@@ -57,7 +57,7 @@ export async function inspectGoals(command: string, action: string | undefined, 
     const entries = (await goals.list()).filter(goal => goal.repository === config.repository);
     if (action === 'gate') {
       const decision = compareEvaluationProfiles(entries, gateConfig(config, values),
-        taskId({ ...config, publish: false }));
+        configDigest({ ...config, publish: false }));
       emit(output, decision); return decision.eligible ? true : 'ineligible';
     }
     emit(output, evaluateGoals(entries, values.suite));
@@ -132,7 +132,7 @@ export async function executeGoals(command: string, action: string | undefined, 
           if (deps.config.iteration.strategyGate) {
             strategyGate = compareEvaluationProfiles((await deps.goals.list())
               .filter(goal => goal.repository === deps.config.repository), deps.config.iteration.strategyGate,
-              taskId({ ...deps.config, publish: false }));
+              configDigest({ ...deps.config, publish: false }));
             eligible = strategyGate.eligible;
           }
           const queue = await processIssueCandidates({ ...deps, candidates: deps.candidates }, eligible);
