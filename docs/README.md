@@ -2,6 +2,8 @@
 
 Read ARCHITECTURE.md for the design and VERIFICATION.md for tested behavior and limitations.
 
+See the 1.7.0 development [Jev decision layer](JEV-DECISIONS.md) for optional typed Issue triage, shadow/gate modes, independent budgets and decision inspection/retry.
+
 See the 1.6.0 [persistent iteration service](SERVICE.md) for durable GitHub event intake, Webhook setup, polling compensation, daily budgets, circuit recovery and opt-in progress feedback.
 
 See [goal-driven iteration](ITERATION.md) for goal planning, acceptance criteria, automatic Issue intake, PR follow-up, experience records and isolated preview verification. These features are included in 1.6.0; use matching controller and Agent versions.

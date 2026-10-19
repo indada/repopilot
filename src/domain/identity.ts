@@ -4,7 +4,9 @@ import type { RunInput } from './task.js';
 import type { PullRequest } from './types.js';
 
 export function taskId(value: unknown): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 24); }
-export function executionConfig(config: Config): Config { const { service: _service, ...execution } = config; return execution; }
+export function executionConfig(config: Config): Config {
+  const { service: _service, decision: _decision, ...execution } = config; return execution;
+}
 export function configDigest(config: Config): string { return taskId(executionConfig(config)); }
 export function descriptionHash(pr?: PullRequest, description = ''): string {
   return taskId(pr ? [pr.title, pr.body ?? ''] : description);

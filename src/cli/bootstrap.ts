@@ -10,6 +10,9 @@ import { gitRepository } from '../adapters/storage/repository.js';
 import { DockerRunner } from '../adapters/testing/docker-runner.js';
 import { DockerRecoveryResources } from '../adapters/testing/recovery-resources.js';
 import { ControllerLock } from '../adapters/storage/controller-lock.js';
+import { FileDecisionStore } from '../adapters/storage/decision-store.js';
+import { JevClient } from '../adapters/decision/jev-client.js';
+import { CandidateDecisionEvaluator } from '../application/decisions.js';
 import { applyRecovery, recoveryPreview } from '../application/recovery.js';
 import { fixIssue } from '../application/issue.js';
 import { runService, validateService } from '../application/service.js';
@@ -24,6 +27,7 @@ import { doctor, initialize } from './commands/setup.js';
 import { executeGoals, inspectGoals, validateGoalCommand } from './commands/goals.js';
 import { executeCandidates, inspectCandidates, validateCandidateCommand } from './commands/candidates.js';
 import { inspectService } from './commands/service.js';
+import { executeDecision, inspectDecisions, retryDecision, validateDecisionCommand } from './commands/decisions.js';
 import { loadConfig } from './config.js';
 import { reportExitCode, reportSummary } from './output.js';
 import type { Output, Runtime } from './runtime.js';
@@ -35,7 +39,7 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   if (values.help || !command) { output.write(help); return 0; }
   if (command === 'init') return initialize(values, output);
   if (command === 'doctor') return doctor(values, output);
-  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates', 'serve', 'service', 'events'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
+  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates', 'serve', 'service', 'events', 'decisions'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
   const config = await loadConfig(values.config), store = new Store(config.dataDir);
   if (command === 'recover') {
     const lock = new ControllerLock(config.dataDir), resources = new DockerRecoveryResources(config.dataDir);
@@ -49,8 +53,11 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   const action = positionals[1], task = positionals[2];
   validateGoalCommand(command, action, task, values);
   if (command === 'candidates') validateCandidateCommand(action, task, values);
+  if (command === 'decisions') validateDecisionCommand(action, task, values);
   const goals = new FileIterationStore(config.dataDir), candidates = new FileCandidateStore(config.dataDir);
   const services = new FileServiceStore(config.dataDir);
+  const decisionStore = new FileDecisionStore(config.dataDir);
+  if (command === 'decisions' && await inspectDecisions(action, task, values, config, decisionStore, output)) return 0;
   if (await inspectService(command, action, task, values, config, services, candidates, output)) return 0;
   if (command === 'serve') validateService(config);
   const inspection = await inspectGoals(command, action, task, values, config, goals, output);
@@ -75,9 +82,13 @@ export async function main(args: string[], output: Output = standardOutput): Pro
       github };
     const automation = {
       ...runtime, goals, github, candidates,
+      decision: config.decision?.enabled ? new CandidateDecisionEvaluator(config.repository, config.decision, decisionStore,
+        new JevClient(config.decision, process.env[config.decision.apiKeyEnv])) : undefined,
       onAdvance: budget ? () => budget.startTask() : undefined,
       previewRunner: config.iteration?.preview ? new DockerRunner(config.iteration.preview, config.dataDir) : undefined
     };
+    if (command === 'decisions') return action === 'retry' ? retryDecision(task!, values.expected!, config, decisionStore, output)
+      : executeDecision(task!, automation, output);
     if (command === 'serve') {
       const webhook = config.service?.webhook && !values.once ? await startWebhookServer(config.repository,
         config.service.webhook, process.env[config.service.webhook.secretEnv] ?? '', event => services.enqueue(event, config.service!.queue.maxPending)) : undefined;

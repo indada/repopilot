@@ -30,6 +30,10 @@ export const help = `RepoPilot ${VERSION} — local-first repository verificatio
   repopilot service approve CANDIDATE_ID --expected EVIDENCE_DIGEST --config config.local.json
   repopilot events list --config config.local.json [--status dead]
   repopilot events retry EVENT_ID --config config.local.json
+  repopilot decisions status|list --config config.local.json
+  repopilot decisions show DECISION_ID --config config.local.json
+  repopilot decisions evaluate CANDIDATE_ID --config config.local.json
+  repopilot decisions retry DECISION_ID --expected INPUT_DIGEST --config config.local.json
   repopilot discover --config config.local.json [--apply --expected PREVIEW_TOKEN]
   repopilot experiences --config config.local.json
   repopilot evals --config config.local.json [--suite SUITE]

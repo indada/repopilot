@@ -71,6 +71,7 @@ test('fresh build resolves CLI, Codex entry and reporter paths without old outpu
   const cli = await execute(process.execPath, [join(out, 'cli.js'), '--help']);
   assert.equal(cli.code, 0, cli.stderr); assert.match(cli.stdout, /tasks resume/);
   assert.match(cli.stdout, /repopilot serve/); assert.match(cli.stdout, /service approve/);
+  assert.match(cli.stdout, /decisions evaluate/);
   const runnerUrl = pathToFileURL(join(out, 'adapters/testing/docker-runner.js')).href;
   const probe = await execute(process.execPath, ['--input-type=module', '-e',
     'import {nodeReporterUrl} from ' + JSON.stringify(runnerUrl) + '; console.log(nodeReporterUrl().href);']);

@@ -1,8 +1,12 @@
 # Verification
 
-This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 203 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
+This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 229 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
 
 Coverage includes:
+
+- Jev typed HTTP-contract validation, pinned model/answer/distribution checks, response limits, sanitized provider failures, missing-key preflight and cancellation.
+- Shadow/gate intake boundaries, trusted-source revalidation around decisions, stable reproduction and approval isolation, already-approved recovery and fairness behind cached review results.
+- Separate persistent decision budgets, concurrent deduplication, unknown usage, delayed/midnight settlement, input-identity changes, bounded retry, disk-failure handling and inspection under the controller lock.
 
 - Signed Webhook ingress over synthetic localhost HTTP, durable delivery acknowledgement, atomic deduplication, queue capacity, coalescing and interrupted-receipt recovery.
 - UTC daily service reservations across parallel roles and execution forks, midnight settlement, unknown/over-limit usage, operator pause/resume and independent failure circuits.

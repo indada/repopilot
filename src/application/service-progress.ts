@@ -26,7 +26,9 @@ export function queueCandidateProgress(store: ServiceStore, candidate: Candidate
   const statuses: Record<Candidate['status'], string> = { observed: 'Queued for reproduction', stale: 'Inputs changed; previous approval is invalid',
     reproduced: 'Reproduced; awaiting execution approval', approved: 'Approved for bounded execution', running: 'Implementation and verification in progress',
     completed: 'Verification completed', blocked: 'Blocked; inspect local evidence' };
-  return queueProgress(store, candidate.repository, candidate.issue, reproducing ? 'Reproducing on the pinned commit' : statuses[candidate.status],
+  const status = !reproducing && ['observed', 'stale', 'reproduced'].includes(candidate.status) && candidate.decision?.route === 'review'
+    ? 'Decision advisory requests human review; execution approval unchanged' : statuses[candidate.status];
+  return queueProgress(store, candidate.repository, candidate.issue, reproducing ? 'Reproducing on the pinned commit' : status,
     { candidate: candidate.id, goal: candidate.goalId, report: candidate.reproduction?.reportId, commit: candidate.commit, url });
 }
 

@@ -96,3 +96,7 @@ Set `service.progress=true` to enable Issue/PR comments independently from repai
 One marker identifies a progress comment per GitHub object. The controller updates a comment only when its marker and authenticated author match. If a creation response is lost, the next attempt finds the saved remote comment before writing. Spoofed markers by other authors are not edited. The local outbox retains the desired digest, delivered digest, retry state and remote comment ID. Feedback covers queued/reproducing, awaiting approval, running, completed and blocked states, with report/goal IDs, pinned commit and a repair-PR link when available. Full logs and repository text remain local.
 
 Progress comments are filtered out of repair-review feedback and ignored as wake-up events. They do not become new acceptance criteria or grant execution permission. Failed deliveries stop automatic retry after `queue.maxAttempts`; changed status or an explicit `service resume` opens a fresh retry window.
+
+## Optional Jev decisions (1.7.0 development)
+
+The [Jev decision layer](JEV-DECISIONS.md) can inspect trusted Issue requests before new automatic intake. Its independent UTC daily ledger accounts for TypeSafe requests; `service.limits` continues to account for Codex. Gate deferral is a neutral service outcome, so uncertainty does not trip the verification circuit or spend a task admission. A service pause also interrupts an active Jev request. See `decisions status|list|show` for inspection while the service holds its lock.

@@ -1,5 +1,6 @@
 import { taskId } from './identity.js';
 import type { TestResult } from './types.js';
+import type { DecisionSummary } from './decision.js';
 
 export type CandidateKind = 'issue' | 'ci' | 'policy' | 'review' | 'post_merge' | 'baseline';
 export type CandidateStatus = 'observed' | 'reproduced' | 'approved' | 'running' | 'completed' | 'blocked' | 'stale';
@@ -48,6 +49,7 @@ export interface Candidate {
   reason?: string;
   failureCount?: number;
   retryAfter?: string;
+  decision?: DecisionSummary;
 }
 
 export function candidateFromSignal(signal: CandidateSignal, previous?: Candidate, now = new Date().toISOString()): Candidate {
@@ -66,7 +68,8 @@ export function candidateFromSignal(signal: CandidateSignal, previous?: Candidat
     reproduction: changed ? undefined : previous?.reproduction,
     goalId: previous?.goalId, reason: changed ? 'Source evidence changed; prior reproduction and approval remain invalid.' : previous?.reason,
     failureCount: changed ? undefined : previous?.failureCount,
-    retryAfter: changed ? undefined : previous?.retryAfter };
+    retryAfter: changed ? undefined : previous?.retryAfter,
+    decision: changed ? undefined : previous?.decision };
 }
 
 export function orderCandidates(candidates: Candidate[]): Candidate[] {

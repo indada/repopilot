@@ -7,12 +7,14 @@ import { diagnose } from '../domain/test-diagnosis.js';
 import { passed, sameFailures } from '../domain/test-evidence.js';
 import type { QueueIssue } from '../ports/automation.js';
 import type { CandidateStore } from '../ports/candidate.js';
+import type { DecisionEvaluator } from '../ports/decision.js';
 import { AutomationPausedError, RetryableError, withFreshness } from '../shared/control.js';
 import { createGoal, runGoal } from './iteration.js';
 import { runPipeline } from './pipeline.js';
 import type { AutomationDependencies } from './automation.js';
 
 export type CandidateDependencies = AutomationDependencies & { candidates: CandidateStore;
+  decision?: DecisionEvaluator;
   onReproduction?: (candidate: Candidate) => Promise<void>;
   onAdvance?: (candidate: Candidate) => Promise<void> };
 const sha = /^[a-f0-9]{40}$/;
@@ -133,6 +135,36 @@ async function pinnedSnapshot(d: CandidateDependencies, commit: string, signal: 
   await d.repository.prepare(cache);
   await d.repository.fetch(cache, d.config.repository, commit, commit, signal);
   return d.repository.snapshot(cache, commit, signal);
+}
+
+/** Jev may restrict automatic intake, but only current trusted Issue evidence may reach the provider. */
+export async function evaluateCandidate(id: string, d: CandidateDependencies) {
+  if (!d.config.decision?.enabled || !d.decision) throw new Error('Configure and enable the Jev decision provider first.');
+  const candidate = await d.candidates.read(id), queue = d.config.iteration?.queue;
+  if (!candidate || candidate.repository !== d.config.repository || candidate.kind !== 'issue' || !candidate.issue || !candidate.branch || !queue)
+    throw new Error('Decision evaluation requires an Issue candidate in this repository and iteration.queue.');
+  const current = async () => {
+    const issue = await d.github.issue(candidate.issue!) as QueueIssue, target = await d.github.target(candidate.branch);
+    const matches = trustedIssue(issue, queue) && candidateFromSignal(issueSignal(d.config.repository, issue,
+      target.branch, target.sha, queue.priorityLabels, configDigest(d.config))).evidenceDigest === candidate.evidenceDigest;
+    return { issue, matches };
+  };
+  const stale = async () => {
+    candidate.status = 'stale'; candidate.reproduction = undefined; candidate.decision = undefined;
+    candidate.reason = 'Issue authorization or pinned inputs changed during decision evaluation.';
+    candidate.updatedAt = now(); await d.candidates.save(candidate);
+  };
+  const before = await current();
+  if (!before.matches) { await stale(); return { candidate, attempted: false }; }
+  if (candidate.detail.length > 2000 || candidate.title.length < 8 || candidate.title.length > 200)
+    throw new Error('Issue request exceeds bounded decision intake limits.');
+  const result = await d.decision.evaluate({ repository: candidate.repository, candidateId: candidate.id,
+    evidenceDigest: candidate.evidenceDigest, issue: candidate.issue, commit: candidate.commit, branch: candidate.branch,
+    title: candidate.title, request: candidate.detail, intent: issueMode(before.issue, queue), allowedPaths: queue.allowedPaths }, d.signal);
+  d.signal.throwIfAborted();
+  if (!(await current()).matches) { await stale(); return { candidate, attempted: result.attempted }; }
+  candidate.decision = result.summary; candidate.updatedAt = now(); await d.candidates.save(candidate);
+  return { candidate, attempted: result.attempted };
 }
 
 export async function reproduceCandidate(id: string, d: CandidateDependencies): Promise<Candidate> {
@@ -290,6 +322,8 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
   const selected = [...recover, ...incoming];
   const processed: { id: string; status: Candidate['status']; goalId?: string; reason?: string }[] = [];
   const errors: { id: string; error: string; retryAfter?: string }[] = [];
+  const deferred: { id: string; reason: string; decisionId?: string }[] = [];
+  let decisionCalls = 0;
   const goals = await d.goals.list();
   for (const initial of selected) {
     if (processed.length + errors.length >= queue.maxPerRun) break;
@@ -300,6 +334,17 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
     try {
       let candidate = initial;
       let admitted = false;
+      if (d.config.decision?.enabled && !['approved', 'running'].includes(candidate.status)
+        && !goals.some(goal => goal.repository === d.config.repository && goal.spec.issue === candidate.issue)
+        && candidate.title.length >= 8 && candidate.title.length <= 200 && candidate.detail.length >= 8 && candidate.detail.length <= 2000) {
+        if (decisionCalls >= queue.maxPerRun) break;
+        const evaluation = await evaluateCandidate(candidate.id, d);
+        candidate = evaluation.candidate; if (evaluation.attempted) decisionCalls++;
+        if (!candidate.decision) { processed.push({ id: candidate.id, status: candidate.status, reason: candidate.reason }); continue; }
+        if (d.config.decision.mode === 'gate' && candidate.decision.route === 'review') {
+          deferred.push({ id: candidate.id, reason: candidate.decision.reasons.join(' '), decisionId: candidate.decision.id }); continue;
+        }
+      }
       if (candidate.status === 'observed' || candidate.status === 'stale') {
         const claimed = goals.find(goal => goal.repository === d.config.repository && goal.spec.issue === candidate.issue);
         if (claimed) {
@@ -344,5 +389,5 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
   const pendingApproval = (await d.candidates.list()).filter(item => item.repository === d.config.repository
     && item.kind === 'issue' && active.has(item.id) && item.status === 'reproduced').length;
   return { created: refreshed.created, stale: refreshed.stale, processed, pendingApproval,
-    deferredByStrategy: !admitNew, errors };
+    deferredByStrategy: !admitNew, deferredByDecision: deferred, errors };
 }

@@ -93,6 +93,8 @@ The development-line `iterate` command now runs Issue intake through this same q
 
 Version **1.6.0** adds a [persistent iteration service](docs/SERVICE.md): `serve` combines signed Webhooks with polling compensation, a durable coalescing event queue, UTC daily model/task allowances, failure-circuit controls and opt-in GitHub progress comments. Operators can pause, resume or approve exact candidate evidence while the controller runs. These features are included in the portable release.
 
+The **1.7.0 development version** adds an optional [Jev decision layer](docs/JEV-DECISIONS.md). TypeSafe Jev classifies trusted Issue requests, estimates risk, scores stated urgency and assesses whether acceptance is testable. Shadow mode records advice; opt-in gate mode defers uncertain automatic intake for human review. Codex remains responsible for test generation and repair, and independent runner evidence remains mandatory. Decisions have pinned-input caching, a separate daily budget and inspect/retry commands. See the [safe example](examples/jev-service.json); the latest published portable release remains 1.6.0.
+
 - Pinned base/head SHAs and title/body digest; continuous freshness checks and cancellation.
 - Scoped literal rules and JavaScript/TypeScript AST call rules, conflict detection and expiring exceptions.
 - Nested AGENTS.md semantic review with verbatim rule/code citations and historical finding comparison.

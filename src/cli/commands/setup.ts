@@ -45,6 +45,7 @@ export async function doctor(values: CliValues, output: Output, run = execute): 
     }
   }
   if (config.agent.enabled) check('OPENAI_API_KEY is set (not authenticated)', !!process.env.OPENAI_API_KEY);
+  if (config.decision?.enabled) check(config.decision.apiKeyEnv + ' is set for Jev (not authenticated)', !!process.env[config.decision.apiKeyEnv]);
   output.write('GitHub token present (not authenticated): ' + !!(process.env.GITHUB_TOKEN || process.env.GH_TOKEN));
   if (config.publish) check('GitHub token required for publishing', !!(process.env.GITHUB_TOKEN || process.env.GH_TOKEN));
   output.write('Read-only checks completed; no containers started and no model calls made.');

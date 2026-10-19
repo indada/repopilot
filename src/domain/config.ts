@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { runnerSchema } from './runner-config.js';
 import { iterationSchema } from './iteration.js';
 import { serviceSchema } from './service.js';
+import { decisionSchema } from './decision.js';
 
 export const configSchema = z.object({
   repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
@@ -9,6 +10,7 @@ export const configSchema = z.object({
   pollSeconds: z.number().int().min(15).default(60),
   iteration: iterationSchema.optional(),
   service: serviceSchema.optional(),
+  decision: decisionSchema.optional(),
   runner: runnerSchema.optional(),
   agent: z.object({
     enabled: z.boolean().default(false),

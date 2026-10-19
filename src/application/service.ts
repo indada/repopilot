@@ -91,7 +91,9 @@ async function processObject(event: ServiceEvent, d: ServiceDependencies, approv
       || report && !passed(report.tests.base);
     const outcome = result.processed.some(item => item.status === 'completed' || item.status === 'reproduced') ? 'success'
       : result.processed.some(item => item.status === 'blocked') && verificationFailed ? 'failure' : 'neutral';
-    return { status: candidate?.status ?? 'No authorized candidate', outcome, retryAfter, detail: { ...result, rejectedApprovals } };
+    const deferred = result.deferredByDecision.some(item => item.id === candidate?.id);
+    return { status: deferred ? 'Decision deferred automatic intake; human review required' : candidate?.status ?? 'No authorized candidate',
+      outcome, retryAfter, detail: { ...result, rejectedApprovals } };
   }
   const owned = (await d.goals.list()).find(goal => goal.repository === d.config.repository
     && goal.pullRequestUrl === `https://github.com/${d.config.repository}/pull/${event.number}` && goal.status === 'published');

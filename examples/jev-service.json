@@ -1,0 +1,21 @@
+{
+  "repository": "OWNER/REPOSITORY",
+  "dataDir": ".repopilot-data",
+  "pollSeconds": 60,
+  "runner": { "image": "node:22-bookworm-slim", "command": ["node", "--test"], "reporter": "node" },
+  "agent": { "enabled": false, "repair": false, "image": "repopilot-agent:local" },
+  "iteration": {
+    "queue": {
+      "labels": ["repopilot-ready"], "trustedAuthors": ["YOUR_GITHUB_LOGIN"],
+      "allowedPaths": ["src", "tests"], "autoApprove": false
+    }
+  },
+  "service": { "reviewPullRequests": false, "progress": false },
+  "decision": {
+    "enabled": false, "provider": "jev", "model": "jev-1.13.0", "mode": "shadow",
+    "apiKeyEnv": "TYPESAFE_API_KEY", "timeoutSeconds": 10,
+    "minConfidence": 0.85, "minTestableProbability": 0.9, "maxRisk": "low",
+    "limits": { "dailyCalls": 100, "dailyTokens": 500000, "tokensPerCall": 16000 }
+  },
+  "publish": false
+}
