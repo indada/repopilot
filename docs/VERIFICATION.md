@@ -1,8 +1,13 @@
 # Verification
 
-This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 229 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
+This revision is validated locally on Windows / Node.js 21.1.0 with strict TypeScript checking (including tests), 253 offline regression tests and compilation. Release builds also check native portable launchers and version consistency on each target platform.
 
 Coverage includes:
+
+- Immutable human-review revisions, pinned decision datasets, offline threshold replay, diagnostic label agreement and mismatched/changed evidence rejection.
+- Evaluated policy activation, stale preview rejection, configured-baseline snapshots, explicit rollback, frozen in-flight settings and crash-idempotent transition/request recovery.
+- Engineering outcome linkage without inferred safety labels, lock-independent operator requests, bounded retry budgets and full offline CLI promotion flow.
+- Local console token/Host/Origin/method boundaries, sanitized snapshots/errors, repository isolation, response bounds and listener failure cleanup.
 
 - Jev typed HTTP-contract validation, pinned model/answer/distribution checks, response limits, sanitized provider failures, missing-key preflight and cancellation.
 - Shadow/gate intake boundaries, trusted-source revalidation around decisions, stable reproduction and approval isolation, already-approved recovery and fairness behind cached review results.

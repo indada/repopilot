@@ -8,6 +8,7 @@ import { passed, sameFailures } from '../domain/test-evidence.js';
 import type { QueueIssue } from '../ports/automation.js';
 import type { CandidateStore } from '../ports/candidate.js';
 import type { DecisionEvaluator } from '../ports/decision.js';
+import type { DecisionSummary } from '../domain/decision.js';
 import { AutomationPausedError, RetryableError, withFreshness } from '../shared/control.js';
 import { createGoal, runGoal } from './iteration.js';
 import { runPipeline } from './pipeline.js';
@@ -15,6 +16,8 @@ import type { AutomationDependencies } from './automation.js';
 
 export type CandidateDependencies = AutomationDependencies & { candidates: CandidateStore;
   decision?: DecisionEvaluator;
+  onDecision?: (candidate: Candidate, summary: DecisionSummary) => Promise<void>;
+  onCycle?: () => Promise<void>;
   onReproduction?: (candidate: Candidate) => Promise<void>;
   onAdvance?: (candidate: Candidate) => Promise<void> };
 const sha = /^[a-f0-9]{40}$/;
@@ -163,6 +166,7 @@ export async function evaluateCandidate(id: string, d: CandidateDependencies) {
     title: candidate.title, request: candidate.detail, intent: issueMode(before.issue, queue), allowedPaths: queue.allowedPaths }, d.signal);
   d.signal.throwIfAborted();
   if (!(await current()).matches) { await stale(); return { candidate, attempted: result.attempted }; }
+  await d.onDecision?.(candidate, result.summary);
   candidate.decision = result.summary; candidate.updatedAt = now(); await d.candidates.save(candidate);
   return { candidate, attempted: result.attempted };
 }
@@ -341,7 +345,7 @@ export async function processIssueCandidates(d: CandidateDependencies, admitNew 
         const evaluation = await evaluateCandidate(candidate.id, d);
         candidate = evaluation.candidate; if (evaluation.attempted) decisionCalls++;
         if (!candidate.decision) { processed.push({ id: candidate.id, status: candidate.status, reason: candidate.reason }); continue; }
-        if (d.config.decision.mode === 'gate' && candidate.decision.route === 'review') {
+        if (candidate.decision.mode === 'gate' && candidate.decision.route === 'review') {
           deferred.push({ id: candidate.id, reason: candidate.decision.reasons.join(' '), decisionId: candidate.decision.id }); continue;
         }
       }

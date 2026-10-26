@@ -49,7 +49,7 @@ jobs:
           file: Dockerfile.agent
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/indada/repopilot-agent:1.6.0
+          tags: ghcr.io/indada/repopilot-agent:1.8.0
           labels: org.opencontainers.image.source=https://github.com/indada/repopilot
   publish:
     needs: [package, image]
@@ -72,5 +72,5 @@ jobs:
           cd assets
           sha256sum *.zip *.tar.gz > SHA256SUMS.txt
           cd ..
-          gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "RepoPilot $GITHUB_REF_NAME" --notes-file docs/releases/1.6.0.md assets/*
+          gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "RepoPilot $GITHUB_REF_NAME" --notes-file docs/releases/1.8.0.md assets/*
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest

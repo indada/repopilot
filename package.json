@@ -1,6 +1,6 @@
 {
   "name": "repopilot-agent",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Self-hosted, verification-driven iteration from GitHub Issues and PRs, powered by the OpenAI Codex SDK.",
   "type": "module",

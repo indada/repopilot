@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { discover, maintainGoal, trackGoal, type AutomationDependencies } from '../../application/automation.js';
-import { processIssueCandidates } from '../../application/candidates.js';
+import { processIssueCandidates, type CandidateDependencies } from '../../application/candidates.js';
 import { compareEvaluationProfiles, evaluateGoals } from '../../application/evaluation.js';
 import { replayEvaluationSuite } from '../../application/evaluation-replay.js';
 import { createGoal, runGoal } from '../../application/iteration.js';
@@ -88,7 +88,7 @@ export async function inspectGoals(command: string, action: string | undefined, 
   return true;
 }
 export async function executeGoals(command: string, action: string | undefined, id: string | undefined, values: CliValues,
-  deps: AutomationDependencies & { candidates?: CandidateStore }, output: Output): Promise<number> {
+  deps: AutomationDependencies & { candidates?: CandidateStore } & Pick<CandidateDependencies, 'decision' | 'onDecision' | 'onCycle'>, output: Output): Promise<number> {
   if (command === 'evals' && action === 'replay') {
     const result = await replayEvaluationSuite(JSON.parse(await readFile(values.spec!, 'utf8')), values.profile!, deps);
     emit(output, result); return result.cases.some(item => !['verified', 'published'].includes(item.status)) ? 1 : 0;
@@ -99,6 +99,7 @@ export async function executeGoals(command: string, action: string | undefined, 
     let maintenanceOffset = 0;
     do {
       if (deps.signal.aborted) return 0;
+      await deps.onCycle?.();
       let queueFailure = false;
       try {
         if (deps.config.iteration?.maintenance || deps.config.iteration?.postMerge) {
@@ -143,6 +144,7 @@ export async function executeGoals(command: string, action: string | undefined, 
         if (!deps.config.iteration?.queue && !deps.config.iteration?.maintenance && !deps.config.iteration?.postMerge) throw new Error('iterate requires iteration.queue or iteration.maintenance, or iteration.postMerge.');
       }
       catch (error) { if (deps.signal.aborted) return 0; throw error; }
+      await deps.onCycle?.();
       if (values.once) return queueFailure ? 1 : 0;
       try { await delay(deps.config.pollSeconds * 1000, undefined, { signal: deps.signal }); }
       catch (error) { if (deps.signal.aborted) return 0; throw error; }

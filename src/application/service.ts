@@ -169,6 +169,7 @@ async function controlled<T>(d: ServiceDependencies, work: (deps: ServiceDepende
 
 export async function processServiceBatch(deps: ServiceDependencies, onResult: (value: unknown) => void,
   onError: (message: string) => void) {
+  await deps.onCycle?.();
   const d = hookedDependencies(deps, onError), config = serviceSettings(d.config);
   let processed = 0, failed = 0;
   const seen = new Set<string>();
@@ -210,6 +211,7 @@ export async function processServiceBatch(deps: ServiceDependencies, onResult: (
     }
   }
   if (!d.signal.aborted) await flushProgress(d.services, d.config.repository, d.github, config, d.signal, onError);
+  await deps.onCycle?.();
   return { processed, failed };
 }
 

@@ -23,6 +23,6 @@ Candidate records live under `dataDir/candidates` and are written atomically und
 
 For fixed-case strategy comparison, see [post-merge tracking and evaluation](POST-MERGE-EVALUATION.md).
 
-The 1.7.0 development [Jev decision layer](JEV-DECISIONS.md) can add advisory classification or a restrictive gate before new automatic reproduction/approval. It does not replace trusted-source checks, stable reproduction, explicit approval policy or goal budgets. Manual candidate operations and already-approved recovery retain their existing authorization boundaries.
+The 1.8.0 [Jev decision layer](JEV-DECISIONS.md) can add advisory classification or a restrictive gate before new automatic reproduction/approval. It does not replace trusted-source checks, stable reproduction, explicit approval policy or goal budgets. Manual candidate operations and already-approved recovery retain their existing authorization boundaries. [Decision governance](DECISION-GOVERNANCE.md) links outcomes and explicit human labels without converting either into execution authority.
 
 For a long-running controller, use the [persistent iteration service](SERVICE.md). `serve` feeds the same state machine from durable event hints and polling, with daily allowance/circuit controls. `service approve --expected` records an approval request without acquiring the active controller lock; the worker rechecks current evidence before acting.

@@ -55,7 +55,7 @@ Context batches contain whole changed files and authoritative scoped rules, with
 
 ## Scope
 
-Public text repositories, same-repository PRs, one controller with serial task admission and optional bounded DAG parallelism, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, dashboard or automatic merge. Version 1.6.0 adds an optional Webhook receiver alongside polling. Containers/reporters are not hostile-code attestation. See SECURITY.md.
+Public text repositories, same-repository PRs, one controller with serial task admission and optional bounded DAG parallelism, atomic files instead of SQLite. No fork execution, browser E2E, dependency installation, hosted administration or automatic merge. The controller supports optional Webhook ingress alongside polling and a separate loopback-only read-only console. Containers/reporters are not hostile-code attestation. See SECURITY.md.
 ## Test environment configuration
 
 `domain/runner-config.ts` validates single-command and multi-command execution contracts. `adapters/testing/environment.ts` owns disposable Docker networks, dependency services, readiness checks and cleanup; `docker-runner.ts` runs commands and aggregates their evidence. The application continues to depend only on the Runner port. Command-scoped case IDs preserve independent evidence across multiple suites, while legacy single-command IDs remain unchanged. See [test environments](TEST-ENVIRONMENTS.md).
@@ -74,3 +74,5 @@ The optional Issue queue and PR maintenance loop share the controller lock and g
 ## Optional decision layer
 
 `domain/decision.ts` defines decision configuration, typed output and durable records; `decision-policy.ts` owns the fixed questions and restrictive threshold logic. `ports/decision.ts` separates provider calls, evaluation and storage. The Jev HTTP adapter validates TypeSafe's wire contract and never sees GitHub credentials. The application evaluator serializes durable reservations and caches pinned-input results; atomic files retain uncertain attempts after interruption. Candidate intake rechecks live authorization before and after evaluation. A gate may defer new work but cannot grant execution, change intent or replace test evidence. Decision settings do not change execution identity or replenish goal budgets. See [Jev decisions](JEV-DECISIONS.md).
+
+`decision-governance.ts` contracts define immutable human labels, fixed suites, evaluations, admission/outcome observations and operator requests. Application workflows recompute thresholds offline, compare identical datasets, preview evaluated policy changes and append atomic transition history. The worker processes requests at task boundaries, with idempotent evidence identities and compare-before-apply checks. Local console adapters depend on a `DashboardReader`; its application projection exposes bounded metadata only. See [decision governance](DECISION-GOVERNANCE.md).

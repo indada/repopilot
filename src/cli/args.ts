@@ -7,7 +7,8 @@ export function parseCli(args: string[]) {
     status: { type: 'string' }, limit: { type: 'string' }, offset: { type: 'string' },
     apply: { type: 'boolean' }, expected: { type: 'string' }, issue: { type: 'string' }, branch: { type: 'string' },
     spec: { type: 'string' }, suite: { type: 'string' }, profile: { type: 'string' },
-    baseline: { type: 'string' }, candidate: { type: 'string' }
+    baseline: { type: 'string' }, candidate: { type: 'string' }, policy: { type: 'string' }, evaluation: { type: 'string' },
+    output: { type: 'string' }, queue: { type: 'boolean' }, port: { type: 'string' }
   } });
 }
 export type CliValues = ReturnType<typeof parseCli>['values'];
@@ -34,6 +35,18 @@ export const help = `RepoPilot ${VERSION} — local-first repository verificatio
   repopilot decisions show DECISION_ID --config config.local.json
   repopilot decisions evaluate CANDIDATE_ID --config config.local.json
   repopilot decisions retry DECISION_ID --expected INPUT_DIGEST --config config.local.json
+  repopilot decisions review DECISION_ID --spec review.json --expected INPUT_DIGEST --config config.local.json
+  repopilot decisions retry DECISION_ID --queue --expected INPUT_DIGEST --config config.local.json
+  repopilot decisions reviews|outcomes|requests|evaluations|process --config config.local.json
+  repopilot decisions suite --suite NAME --output suite.json --config config.local.json
+  repopilot decisions replay|sweep --spec suite.json --policy POLICY_ID --config config.local.json
+  repopilot decisions compare --baseline EVALUATION_ID --candidate EVALUATION_ID --config config.local.json
+  repopilot policies save --spec policy.json --config config.local.json
+  repopilot policies list|status --config config.local.json
+  repopilot policies show POLICY_ID --config config.local.json
+  repopilot policies activate POLICY_ID --evaluation EVALUATION_ID --config config.local.json [--apply --expected TOKEN]
+  repopilot policies rollback --config config.local.json [--apply --expected TOKEN]
+  repopilot dashboard --config config.local.json [--port 8788]
   repopilot discover --config config.local.json [--apply --expected PREVIEW_TOKEN]
   repopilot experiences --config config.local.json
   repopilot evals --config config.local.json [--suite SUITE]

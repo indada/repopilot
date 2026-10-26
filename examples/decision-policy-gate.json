@@ -1,0 +1,9 @@
+{
+  "name": "triage-gate",
+  "model": "jev-1.13.0",
+  "questionVersion": 1,
+  "mode": "gate",
+  "minConfidence": 0.95,
+  "minTestableProbability": 0.95,
+  "maxRisk": "low"
+}

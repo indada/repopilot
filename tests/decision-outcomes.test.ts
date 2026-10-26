@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { FileDecisionStore } from '../src/adapters/storage/decision-store.js';
+import { FileDecisionGovernanceStore } from '../src/adapters/storage/decision-governance-store.js';
+import { CandidateDecisionEvaluator } from '../src/application/decisions.js';
+import { captureDecisionOutcomes } from '../src/application/decision-outcomes.js';
+import { processIssueCandidates } from '../src/application/candidates.js';
+import { decisionSchema } from '../src/domain/decision.js';
+import { serviceFixture } from './service-helpers.js';
+import { decisionResult } from './decision-helpers.js';
+
+test('decision outcomes link reproduction, goal and PR evidence without generating human risk labels', async () => {
+  const { d, issue } = await serviceFixture({ autoApprove: true, publish: true });
+  d.config.decision = decisionSchema.parse({ enabled: true });
+  const decisions = new FileDecisionStore(d.config.dataDir), governance = new FileDecisionGovernanceStore(d.config.dataDir);
+  d.decision = new CandidateDecisionEvaluator(d.config.repository, d.config.decision, decisions, { evaluate: async () => decisionResult() });
+  await processIssueCandidates(d);
+  const deps = { repository: d.config.repository, decisions, governance, candidates: d.candidates, goals: d.goals, reports: d.store };
+  await captureDecisionOutcomes(deps); await captureDecisionOutcomes(deps);
+  const first = (await governance.observations(d.config.repository))[0]!;
+  assert.equal(first.reproduction!.reproduced, true); assert.equal(first.goal!.status, 'published');
+  assert.equal(first.goal!.pullRequestUrl, 'https://github.com/owner/repo/pull/10');
+  assert.equal((await governance.observations(d.config.repository)).length, 1); assert.deepEqual(await governance.reviews(d.config.repository), []);
+  const goal = (await d.goals.list())[0]!; goal.postMerge = { pull: 10, status: 'regressed', checkedAt: new Date().toISOString(), checks: [], reasons: ['Synthetic regression'] };
+  await d.goals.save(goal); await captureDecisionOutcomes(deps);
+  assert.ok((await governance.observations(d.config.repository)).some(value => value.goal?.postMerge === 'regressed'));
+  const candidate = (await d.candidates.list())[0]!;
+  candidate.evidenceDigest = 'f'.repeat(24); candidate.detail = 'Different requested behavior.'; issue.body = candidate.detail; await d.candidates.save(candidate);
+  await captureDecisionOutcomes(deps);
+  const old = (await governance.observations(d.config.repository)).find(value => !value.evidenceCurrent)!;
+  assert.equal(old.reproduction, undefined); assert.equal(old.goal?.id, goal.id);
+  assert.equal((await governance.review('f'.repeat(24))), undefined);
+});

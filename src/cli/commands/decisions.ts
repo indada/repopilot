@@ -6,11 +6,11 @@ import type { CliValues } from '../args.js';
 import type { Output } from '../runtime.js';
 
 export function validateDecisionCommand(action: string | undefined, id: string | undefined, values: CliValues = {}) {
-  if (!['list', 'show', 'status', 'evaluate', 'retry'].includes(action ?? '')) throw new Error('Use decisions list|show|status|evaluate|retry.');
-  if (['show', 'evaluate', 'retry'].includes(action!) && !/^[a-f0-9]{24}$/.test(id ?? ''))
+  if (!['list', 'show', 'status', 'evaluate', 'retry', 'review', 'reviews', 'outcomes', 'requests', 'process', 'suite', 'replay', 'sweep', 'compare', 'evaluations'].includes(action ?? '')) throw new Error('Unknown decisions command; see --help.');
+  if (['show', 'evaluate', 'retry', 'review'].includes(action!) && !/^[a-f0-9]{24}$/.test(id ?? ''))
     throw new Error('Use a decision ID for show or candidate ID for evaluate.');
   if (['list', 'status'].includes(action!) && id) throw new Error('This decision action does not accept an ID.');
-  if (action === 'retry' && !/^[a-f0-9]{24}$/.test(values.expected ?? '')) throw new Error('Retry requires --expected INPUT_DIGEST from decisions show.');
+  if (['retry', 'review'].includes(action!) && !/^[a-f0-9]{24}$/.test(values.expected ?? '')) throw new Error('Operator requests require --expected INPUT_DIGEST from decisions show.');
 }
 export async function inspectDecisions(action: string | undefined, id: string | undefined, values: CliValues,
   config: Config, store: DecisionStore, output: Output): Promise<boolean> {

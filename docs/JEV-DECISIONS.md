@@ -1,6 +1,6 @@
-# Jev decision layer (1.7.0)
+# Jev decision layer (1.8.0)
 
-RepoPilot 1.7.0 adds an optional controller-side Jev decision layer for trusted Issue intake. Codex continues to plan, generate tests, review and propose repairs through the OpenAI Codex SDK. Jev supplies bounded judgments before automatic intake; independent tests and the existing controller policy still decide what can execute or publish.
+RepoPilot 1.8.0 includes the optional controller-side Jev decision layer developed for 1.7.0, together with [decision evaluation and controlled policy iteration](DECISION-GOVERNANCE.md). Codex continues to plan, generate tests, review and propose repairs through the OpenAI Codex SDK. Jev supplies bounded judgments before automatic intake; independent tests and the existing controller policy still decide what can execute or publish.
 
 Jev is a TypeSafe model with typed Choice, Score and Noul outputs. This integration uses the [official HTTP API](https://docs.typesafe.ai/api) at `https://api.typesafe.ai/v1/systemone`, with no additional runtime dependency. It defaults to the pinned `jev-1.13.0` model. See TypeSafe's [models](https://docs.typesafe.ai/models) and [confidence](https://docs.typesafe.ai/confidence) documentation. Rolling aliases are intentionally rejected so cached decisions have an explicit model version.
 
@@ -73,7 +73,7 @@ node dist/cli.js decisions evaluate CANDIDATE_ID --config config.local.json
 node dist/cli.js decisions retry DECISION_ID --expected INPUT_DIGEST --config config.local.json
 ```
 
-Portable users can use `./repopilot` or `.\repopilot.cmd` instead of `node dist/cli.js`. `list`, `show` and `status` work while the controller holds its writer lock. `evaluate` and `retry` mutate evidence and require the exclusive lock; stop a running controller before using them. Evaluate requires an existing current trusted Issue candidate and an enabled decision provider, but runs no Codex repair or test job. A `review` recommendation is still an evaluated result; inspect its route separately from command success.
+Portable users can use `./repopilot` or `.\repopilot.cmd` instead of `node dist/cli.js`. `list`, `show` and `status` work while the controller holds its writer lock. `evaluate` and direct `retry` require the exclusive lock. Version 1.8.0 also provides `decisions retry DECISION_ID --queue --expected INPUT_DIGEST` for a running service. Evaluate requires an existing current trusted Issue candidate and an enabled decision provider, but runs no Codex repair or test job. A `review` recommendation is still an evaluated result; inspect its route separately from command success.
 
 Retry clears a failed/deferred record's backoff using the exact inspected input digest. It preserves attempts, daily consumption and all candidate/goal budgets. Exhausted attempt allowances cannot be reset by retry. Fix credentials or configuration before permitting another attempt. The next `evaluate`/`iterate`/`serve` performs the bounded evaluation; the retry command itself makes no model call.
 

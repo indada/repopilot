@@ -13,6 +13,11 @@ export const decisionSchema = z.object({
   maxRisk: z.enum(['low', 'medium']).default('low'),
   maxAttempts: z.number().int().min(1).max(5).default(3),
   retrySeconds: z.number().int().min(5).max(3600).default(60),
+  useManagedPolicy: z.boolean().optional(),
+  promotion: z.object({ minCases: z.number().int().min(1).max(500).default(3),
+    maxFalseAllow: z.number().int().min(0).max(500).default(0),
+    maxFalseReviewRate: z.number().min(0).max(1).default(0.2)
+  }).strict().optional(),
   limits: z.object({
     dailyCalls: z.number().int().min(1).max(10000).default(100),
     dailyTokens: z.number().int().min(1000).max(1000000000).default(500000),
@@ -49,6 +54,9 @@ export interface DecisionRecord {
   status: 'running' | 'evaluated' | 'error' | 'deferred'; attempts: number;
   createdAt: string; updatedAt: string; retryAfter?: string; failure?: DecisionFailure; retryable?: boolean;
   result?: DecisionResult;
+  subject?: { issue: number; commit: string; branch: string; requestDigest: string };
+  elapsedMs?: number;
+  operatorRetryId?: string;
 }
 export interface DecisionSummary {
   id: string; policyDigest: string; mode: DecisionConfig['mode']; status: DecisionRecord['status']; route: 'continue' | 'review'; reasons: string[];

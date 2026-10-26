@@ -36,7 +36,7 @@ A passing existing test suite may miss a new requirement or an untested edge cas
 - **QA and developer-tooling engineers** who maintain JavaScript, Python, Go or Java suites, monorepos and test environments with database or Redis dependencies.
 - **Developers building with Codex** who want an inspectable example of SDK orchestration, structured model output, independent verification and bounded repair.
 
-These are intended users, not claims of existing adoption. The current scope is public, text-based repositories; version 1.6.0 supports Node, Vitest, pytest, Go and compatible JUnit XML evidence. Fork PR execution, browser E2E and a hosted dashboard are outside the current implementation.
+These are intended users, not claims of existing adoption. The current scope is public, text-based repositories; version 1.8.0 supports Node, Vitest, pytest, Go and compatible JUnit XML evidence. Fork PR execution, browser E2E and a hosted dashboard are outside the current implementation.
 
 ## How it uses OpenAI Codex
 
@@ -77,23 +77,25 @@ For an Issue, run `fix --issue 123 --config config.local.json`: establish a pass
 
 ## Implemented
 
-Version **1.6.0** includes [goal-driven iteration](docs/ITERATION.md): explicit acceptance criteria and path scopes, resumable step plans, feature implementation, bounded verification feedback, opt-in Issue queues, PR follow-up, version-scoped experience, evidence-based improvement proposals and isolated preview/rollback health checks. These capabilities are included in the portable packages and matching 1.6.0 Agent image. Maintainers retain task selection, merge and deployment decisions.
+Version **1.8.0** includes [goal-driven iteration](docs/ITERATION.md): explicit acceptance criteria and path scopes, resumable step plans, feature implementation, bounded verification feedback, opt-in Issue queues, PR follow-up, version-scoped experience, evidence-based improvement proposals and isolated preview/rollback health checks. These capabilities are included in the portable packages and matching 1.8.0 Agent image. Maintainers retain task selection, merge and deployment decisions.
 
-Version **1.6.0** includes [Issue → reproduction → repair PR](docs/ISSUE-REPAIR.md) through `fix --issue`, [pytest, Go test and JUnit XML](docs/MULTILINGUAL-TESTS.md) reporters, and [owned-resource crash recovery](docs/RECOVERY.md). Use the matching 1.6.0 controller and Agent image.
+Version **1.8.0** includes [Issue → reproduction → repair PR](docs/ISSUE-REPAIR.md) through `fix --issue`, [pytest, Go test and JUnit XML](docs/MULTILINGUAL-TESTS.md) reporters, and [owned-resource crash recovery](docs/RECOVERY.md). Use the matching 1.8.0 controller and Agent image.
 
-Version **1.6.0** includes [post-merge tracking and reproducible Agent evaluation](docs/POST-MERGE-EVALUATION.md). It verifies configured checks on the merge commit, records Issue closure, turns regressions into previewed improvement proposals, and compares explicitly tagged evaluation cases by profile.
+Version **1.8.0** includes [post-merge tracking and reproducible Agent evaluation](docs/POST-MERGE-EVALUATION.md). It verifies configured checks on the merge commit, records Issue closure, turns regressions into previewed improvement proposals, and compares explicitly tagged evaluation cases by profile.
 
-Version **1.6.0** includes [multi-Agent collaboration](docs/MULTI-AGENT-COLLABORATION.md): separate Planner, Tester, Developer and Reviewer Codex roles, a shared bounded budget, durable role handoffs and explicit recoverable DAG-node states. The deterministic controller and independent runner retain final authority.
+Version **1.8.0** includes [multi-Agent collaboration](docs/MULTI-AGENT-COLLABORATION.md): separate Planner, Tester, Developer and Reviewer Codex roles, a shared bounded budget, durable role handoffs and explicit recoverable DAG-node states. The deterministic controller and independent runner retain final authority.
 
-New in **1.6.0**: opt-in bounded execution of independent DAG nodes, resource-aware wave sizing, file ownership and conflict replay on updated snapshots, failure isolation, and auditable merge decisions. Every accepted candidate still passes independent cumulative verification.
+New in **1.8.0**: opt-in bounded execution of independent DAG nodes, resource-aware wave sizing, file ownership and conflict replay on updated snapshots, failure isolation, and auditable merge decisions. Every accepted candidate still passes independent cumulative verification.
 
-It also adds an [evidence-driven candidate queue](docs/CANDIDATE-ITERATION.md) and [fixed-case strategy replay and admission](docs/POST-MERGE-EVALUATION.md). CI, policy, review, baseline and post-merge signals are ranked with their evidence; only a trusted Issue with a stable test reproduction can be approved into an executable goal. Pinned evaluation suites compare the same cases across profiles and can block automatic iteration when verification or cost limits regress. These features are included in the 1.6.0 portable release.
+It also adds an [evidence-driven candidate queue](docs/CANDIDATE-ITERATION.md) and [fixed-case strategy replay and admission](docs/POST-MERGE-EVALUATION.md). CI, policy, review, baseline and post-merge signals are ranked with their evidence; only a trusted Issue with a stable test reproduction can be approved into an executable goal. Pinned evaluation suites compare the same cases across profiles and can block automatic iteration when verification or cost limits regress. These features are included in the 1.8.0 portable release.
 
-The development-line `iterate` command now runs Issue intake through this same queue. It reproduces eligible bugfix or feature Issues first, waits for approval by default, and resumes one linked goal after a crash. An explicit `iteration.queue.autoApprove=true` permits stable candidates to continue automatically to a verified draft-PR proposal; changed Issue evidence, revoked labels, exhausted budgets and failed strategy gates prevent new admission.
+The `iterate` command runs Issue intake through this same queue. It reproduces eligible bugfix or feature Issues first, waits for approval by default, and resumes one linked goal after a crash. An explicit `iteration.queue.autoApprove=true` permits stable candidates to continue automatically to a verified draft-PR proposal; changed Issue evidence, revoked labels, exhausted budgets and failed strategy gates prevent new admission.
 
-Version **1.6.0** adds a [persistent iteration service](docs/SERVICE.md): `serve` combines signed Webhooks with polling compensation, a durable coalescing event queue, UTC daily model/task allowances, failure-circuit controls and opt-in GitHub progress comments. Operators can pause, resume or approve exact candidate evidence while the controller runs. These features are included in the portable release.
+Version **1.8.0** adds a [persistent iteration service](docs/SERVICE.md): `serve` combines signed Webhooks with polling compensation, a durable coalescing event queue, UTC daily model/task allowances, failure-circuit controls and opt-in GitHub progress comments. Operators can pause, resume or approve exact candidate evidence while the controller runs. These features are included in the portable release.
 
-The **1.7.0 development version** adds an optional [Jev decision layer](docs/JEV-DECISIONS.md). TypeSafe Jev classifies trusted Issue requests, estimates risk, scores stated urgency and assesses whether acceptance is testable. Shadow mode records advice; opt-in gate mode defers uncertain automatic intake for human review. Codex remains responsible for test generation and repair, and independent runner evidence remains mandatory. Decisions have pinned-input caching, a separate daily budget and inspect/retry commands. See the [safe example](examples/jev-service.json); the latest published portable release remains 1.6.0.
+Version **1.8.0** includes an optional [Jev decision layer](docs/JEV-DECISIONS.md). TypeSafe Jev classifies trusted Issue requests, estimates risk, scores stated urgency and assesses whether acceptance is testable. Shadow mode records advice; opt-in gate mode defers uncertain automatic intake for human review. Codex remains responsible for test generation and repair, and independent runner evidence remains mandatory. Decisions have pinned-input caching, a separate daily budget and inspect/retry commands. See the [safe example](examples/jev-service.json).
+
+New in **1.8.0**: [decision evaluation and controlled policy iteration](docs/DECISION-GOVERNANCE.md). Link recommendations to engineering outcomes, add explicit human labels, replay fixed datasets and sweep thresholds offline, then activate or roll back immutable policy versions through evidence-bound previews. Queue operator requests while the service runs. The local read-only `dashboard` shows candidate/decision states, DAGs, budgets and request receipts without exposing provider credentials or raw logs.
 
 - Pinned base/head SHAs and title/body digest; continuous freshness checks and cancellation.
 - Scoped literal rules and JavaScript/TypeScript AST call rules, conflict detection and expiring exceptions.
@@ -110,7 +112,7 @@ Developer preview. See [verification coverage](docs/VERIFICATION.md) for the cur
 
 ## Setup
 
-Download a [1.6.0 portable release](https://github.com/indada/repopilot/releases/tag/v1.6.0) for Linux, Windows or macOS to run without installing Node.js. See [portable quickstart](docs/QUICKSTART.md). The following commands are for source installations.
+Download a [1.8.0 portable release](https://github.com/indada/repopilot/releases/tag/v1.8.0) for Linux, Windows or macOS to run without installing Node.js. See [portable quickstart](docs/QUICKSTART.md). The following commands are for source installations.
 
 Node.js 22 recommended, npm and Git. Test and agent execution requires Docker with Linux containers.
 
@@ -180,7 +182,7 @@ Publication rechecks SHAs and description. Existing branches/PRs are reusable on
 
 ## Operations and limits
 
-Version 1.6.0 includes `recover` to preview and explicitly clean owned crash leftovers and retain interrupted task evidence. See [recovery](docs/RECOVERY.md) for lock states, preview tokens and legacy-resource handling.
+Version 1.8.0 includes `recover` to preview and explicitly clean owned crash leftovers and retain interrupted task evidence. See [recovery](docs/RECOVERY.md) for lock states, preview tokens and legacy-resource handling.
 
 Task management commands:
 
@@ -204,7 +206,7 @@ Task timeout, maxCalls, maxAttempts and maxTaskExecutions are bounded. maxTokens
 
 Public text-only repositories, up to 10,000 files / 16 MiB. Symlinks, submodules, binaries and case collisions fail closed. Context is batched around changed files plus related imports/tests; oversized individual files fail explicitly. One controller runs serially. After a crash, use the recovery preview and validated apply flow; legacy locks and resources require manual inspection.
 
-No dashboard, distributed queue, browser E2E, automatic dependency installation or fork execution. Version 1.6.0 supports an optional local Webhook receiver; see [service operation](docs/SERVICE.md). Test execution is evidence, not tamper-proof attestation against malicious code. See SECURITY.md.
+No hosted dashboard, distributed queue, browser E2E, automatic dependency installation or fork execution. Version 1.8.0 includes a local read-only console and optional local Webhook receiver; see [decision operations](docs/DECISION-GOVERNANCE.md) and [service operation](docs/SERVICE.md). Test execution is evidence, not tamper-proof attestation against malicious code. See SECURITY.md.
 
 ## Development
 

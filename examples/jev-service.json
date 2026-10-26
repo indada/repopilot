@@ -14,6 +14,8 @@
   "decision": {
     "enabled": false, "provider": "jev", "model": "jev-1.13.0", "mode": "shadow",
     "apiKeyEnv": "TYPESAFE_API_KEY", "timeoutSeconds": 10,
+    "useManagedPolicy": false,
+    "promotion": { "minCases": 3, "maxFalseAllow": 0, "maxFalseReviewRate": 0.2 },
     "minConfidence": 0.85, "minTestableProbability": 0.9, "maxRisk": "low",
     "limits": { "dailyCalls": 100, "dailyTokens": 500000, "tokensPerCall": 16000 }
   },

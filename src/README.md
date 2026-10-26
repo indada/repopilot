@@ -8,6 +8,7 @@
 | ports/ | Agent, Runner, task/goal/service stores, model call reservations, Repository, GitHub and automation contracts |
 | adapters/codex/ | Codex container execution, SDK entry point and context preparation |
 | adapters/decision/ | Controller-side Jev typed-decision HTTP integration and response validation |
+| adapters/dashboard/ | Loopback-only read-only console page, session token and bounded metadata endpoint |
 | adapters/testing/ | Docker execution and recovery; Node/Vitest, pytest/JUnit XML and Go JSON evidence |
 | adapters/github/ | GitHub HTTP, signed Webhook ingress, progress comments and Git-data publication |
 | adapters/storage/ | Git operations, snapshot export and filesystem task persistence |

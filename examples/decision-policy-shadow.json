@@ -1,0 +1,9 @@
+{
+  "name": "triage-shadow",
+  "model": "jev-1.13.0",
+  "questionVersion": 1,
+  "mode": "shadow",
+  "minConfidence": 0.85,
+  "minTestableProbability": 0.9,
+  "maxRisk": "low"
+}

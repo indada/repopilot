@@ -13,6 +13,15 @@ import { ControllerLock } from '../adapters/storage/controller-lock.js';
 import { FileDecisionStore } from '../adapters/storage/decision-store.js';
 import { JevClient } from '../adapters/decision/jev-client.js';
 import { CandidateDecisionEvaluator } from '../application/decisions.js';
+import { FileDecisionGovernanceStore } from '../adapters/storage/decision-governance-store.js';
+import { startDashboard } from '../adapters/dashboard/server.js';
+import { dashboardSnapshot } from '../application/dashboard.js';
+import { captureDecisionOutcomes } from '../application/decision-outcomes.js';
+import { effectiveDecisionConfig } from '../application/decision-policies.js';
+import { processDecisionRequests } from '../application/decision-requests.js';
+import { taskId } from '../domain/identity.js';
+import type { Candidate } from '../domain/candidate.js';
+import type { DecisionSummary } from '../domain/decision.js';
 import { applyRecovery, recoveryPreview } from '../application/recovery.js';
 import { fixIssue } from '../application/issue.js';
 import { runService, validateService } from '../application/service.js';
@@ -28,6 +37,7 @@ import { executeGoals, inspectGoals, validateGoalCommand } from './commands/goal
 import { executeCandidates, inspectCandidates, validateCandidateCommand } from './commands/candidates.js';
 import { inspectService } from './commands/service.js';
 import { executeDecision, inspectDecisions, retryDecision, validateDecisionCommand } from './commands/decisions.js';
+import { executeDecisionGovernance, inspectDecisionGovernance } from './commands/decision-governance.js';
 import { loadConfig } from './config.js';
 import { reportExitCode, reportSummary } from './output.js';
 import type { Output, Runtime } from './runtime.js';
@@ -39,7 +49,7 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   if (values.help || !command) { output.write(help); return 0; }
   if (command === 'init') return initialize(values, output);
   if (command === 'doctor') return doctor(values, output);
-  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates', 'serve', 'service', 'events', 'decisions'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
+  if (!values.config || !['check', 'watch', 'tasks', 'recover', 'fix', 'goals', 'iterate', 'discover', 'experiences', 'evals', 'candidates', 'serve', 'service', 'events', 'decisions', 'policies', 'dashboard'].includes(command)) throw new Error('Use a repository command with --config; see --help.');
   const config = await loadConfig(values.config), store = new Store(config.dataDir);
   if (command === 'recover') {
     const lock = new ControllerLock(config.dataDir), resources = new DockerRecoveryResources(config.dataDir);
@@ -57,6 +67,22 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   const goals = new FileIterationStore(config.dataDir), candidates = new FileCandidateStore(config.dataDir);
   const services = new FileServiceStore(config.dataDir);
   const decisionStore = new FileDecisionStore(config.dataDir);
+  const governance = new FileDecisionGovernanceStore(config.dataDir);
+  const governanceCli = { config, store: decisionStore, governance, services, output };
+  const outcomes = () => captureDecisionOutcomes({ repository: config.repository, decisions: decisionStore, governance, candidates, goals, reports: store });
+  if (command === 'dashboard') {
+    const port = Number(values.port ?? 8788); if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Dashboard port must be 1..65535.');
+    let stop!: () => void;
+    const closed = new Promise<void>(resolve => { stop = resolve; });
+    process.once('SIGINT', stop); process.once('SIGTERM', stop);
+    try {
+      const dashboard = await startDashboard({ snapshot: () => dashboardSnapshot(config, VERSION,
+        { candidates, goals, reports: store, decisions: decisionStore, governance, services }) }, port);
+      output.write(JSON.stringify({ dashboard: dashboard.url, readOnly: true }));
+      try { await closed; } finally { await dashboard.close(); } return 0;
+    } finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); }
+  }
+  if (await inspectDecisionGovernance(command, action, task, values, governanceCli)) return 0;
   if (command === 'decisions' && await inspectDecisions(action, task, values, config, decisionStore, output)) return 0;
   if (await inspectService(command, action, task, values, config, services, candidates, output)) return 0;
   if (command === 'serve') validateService(config);
@@ -68,6 +94,8 @@ export async function main(args: string[], output: Output = standardOutput): Pro
   const abort = new AbortController(), stop = () => abort.abort();
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
+    const governanceResult = await executeDecisionGovernance(command, action, values, governanceCli);
+    if (governanceResult !== undefined) return governanceResult;
     const budget = config.service ? new ServiceBudget(services, config.repository, config.service,
       config.agent.enabled ? config.agent.maxTokens : 0) : undefined;
     const github = new GitHub(config.repository, undefined, { signal: abort.signal, retry: config.retry });
@@ -83,7 +111,14 @@ export async function main(args: string[], output: Output = standardOutput): Pro
     const automation = {
       ...runtime, goals, github, candidates,
       decision: config.decision?.enabled ? new CandidateDecisionEvaluator(config.repository, config.decision, decisionStore,
-        new JevClient(config.decision, process.env[config.decision.apiKeyEnv])) : undefined,
+        new JevClient(config.decision, process.env[config.decision.apiKeyEnv]), Date.now,
+        () => effectiveDecisionConfig(config.repository, config.decision!, governance)) : undefined,
+      onDecision: async (candidate: Candidate, summary: DecisionSummary) => {
+        const evidence = { repository: config.repository, decisionId: summary.id, candidateId: candidate.id,
+          evidenceDigest: candidate.evidenceDigest, summary };
+        await governance.saveAdmission({ schemaVersion: 1, id: taskId(['admission', evidence]), ...evidence, observedAt: new Date().toISOString() });
+      },
+      onCycle: async () => { await processDecisionRequests(config, decisionStore, governance, services); await outcomes(); },
       onAdvance: budget ? () => budget.startTask() : undefined,
       previewRunner: config.iteration?.preview ? new DockerRunner(config.iteration.preview, config.dataDir) : undefined
     };
@@ -111,5 +146,8 @@ export async function main(args: string[], output: Output = standardOutput): Pro
     }
     const report = command === 'check' ? await check(values, runtime) : await runTask(action!, task!, runtime);
     output.write(reportSummary(report, config)); return reportExitCode(report);
-  } finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); await release(); }
+  } finally {
+    process.off('SIGINT', stop); process.off('SIGTERM', stop);
+    try { await outcomes(); } finally { await release(); }
+  }
 }
